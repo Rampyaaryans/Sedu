@@ -1,0 +1,314 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg_main"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <!-- Back button + Title -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:id="@+id/backButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="←"
+                android:textSize="28sp"
+                android:textColor="@color/primary_dark"
+                android:paddingEnd="16dp"
+                android:paddingStart="0dp"
+                android:clickable="true"
+                android:focusable="true" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="SEDU User Guide"
+                android:textSize="26sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_dark"
+                android:fontFamily="sans-serif-medium" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="2dp"
+            android:background="@color/primary"
+            android:layout_marginBottom="20dp" />
+
+        <!-- Getting Started -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🚀  Getting Started"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_dark"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="1. Train Your Voice — Tap 'Train My Voice' and say 'SEDU' 5 times. This ensures ONLY your voice activates Sedu.\n\n2. Start Sedu — Tap 'Start' button. Sedu will listen for your wake word in the background.\n\n3. Say 'SEDU' — When you need help, just say 'Sedu' clearly. The screen will glow green and vibrate.\n\n4. Give Your Command — Speak naturally in Hindi, English, or Hinglish. Sedu understands all three!"
+            android:textSize="15sp"
+            android:textColor="@color/text_light"
+            android:lineSpacingMultiplier="1.3"
+            android:layout_marginBottom="24dp"
+            android:background="@color/card_bg"
+            android:padding="16dp" />
+
+        <!-- Phone Calls -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="📞  Phone Calls (Top Priority)"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_dark"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="• 'Sedu, call Mama' → Calls Mama directly\n• 'Sedu, call Aru Papa' → Calls the exact contact\n• 'Sedu, call Papa' → If multiple Papas exist, Sedu will ASK which one\n• 'Sedu, Papa ko call karo' → Hindi works too!\n\nSmart Contact Matching: Sedu knows all your contacts. If a name is ambiguous, it asks to clarify — just like Siri!"
+            android:textSize="15sp"
+            android:textColor="@color/text_light"
+            android:lineSpacingMultiplier="1.3"
+            android:layout_marginBottom="24dp"
+            android:background="@color/card_bg"
+            android:padding="16dp" />
+
+        <!-- Messages -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="💬  Messages"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_dark"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="• 'Sedu, SMS Mama — I'll be late' → Opens SMS with message\n• 'Sedu, WhatsApp Rahul — meeting at 5' → Sends WhatsApp\n• Works with Hindi: 'Sedu, Rahul ko WhatsApp karo — kal milte hain'"
+            android:textSize="15sp"
+            android:textColor="@color/text_light"
+            android:lineSpacingMultiplier="1.3"
+            android:layout_marginBottom="24dp"
+            android:background="@color/card_bg"
+            android:padding="16dp" />
+
+        <!-- Web Search -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🔍  Web Search (2nd Priority)"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_dark"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="• 'Sedu, search iPhone 16 price' → Opens Google search\n• 'Sedu, Google best restaurants near me' → Web search\n• 'Sedu, search karo weather today' → Hindi search too"
+            android:textSize="15sp"
+            android:textColor="@color/text_light"
+            android:lineSpacingMultiplier="1.3"
+            android:layout_marginBottom="24dp"
+            android:background="@color/card_bg"
+            android:padding="16dp" />
+
+        <!-- Music -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🎵  Music"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_dark"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="• 'Sedu, play Arijit Singh' → Plays Arijit Singh songs\n• 'Sedu, play Tum Hi Ho' → Plays specific song\n• 'Sedu, kuch sunao' → Sedu ASKS what you want to hear\n• 'Sedu, play some music' → Sedu asks your preference\n\nWorks with: YouTube Music, Spotify, JioSaavn, Gaana, and more!"
+            android:textSize="15sp"
+            android:textColor="@color/text_light"
+            android:lineSpacingMultiplier="1.3"
+            android:layout_marginBottom="24dp"
+            android:background="@color/card_bg"
+            android:padding="16dp" />
+
+        <!-- General Chat -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🤖  Chat &amp; Questions"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_dark"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="• 'Sedu, kya haal hai?' → Friendly conversation\n• 'Sedu, what is AI?' → Explains AI in Hinglish\n• 'Sedu, tell me a joke' → Tells a joke!\n• 'Sedu, 2 plus 2?' → Quick math\n• 'Sedu, India ka capital?' → General knowledge\n• 'Sedu, mujhe motivate karo' → Motivational talk\n\nSedu is your personal Jarvis — ask ANYTHING!"
+            android:textSize="15sp"
+            android:textColor="@color/text_light"
+            android:lineSpacingMultiplier="1.3"
+            android:layout_marginBottom="24dp"
+            android:background="@color/card_bg"
+            android:padding="16dp" />
+
+        <!-- Device Controls -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="⚙️  Device Controls"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_dark"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Volume:\n• 'Sedu, volume up' / 'volume down' / 'mute'\n\nFlashlight:\n• 'Sedu, torch on' / 'torch off'\n\nBrightness:\n• 'Sedu, brightness up' / 'brightness down'\n\nConnectivity:\n• 'Sedu, WiFi on' / 'WiFi off'\n• 'Sedu, Bluetooth on' / 'Bluetooth off'\n\nSettings:\n• 'Sedu, open WiFi settings' / 'open display settings'"
+            android:textSize="15sp"
+            android:textColor="@color/text_light"
+            android:lineSpacingMultiplier="1.3"
+            android:layout_marginBottom="24dp"
+            android:background="@color/card_bg"
+            android:padding="16dp" />
+
+        <!-- Time, Alarms, Timers -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="⏰  Time, Alarms &amp; Timers"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_dark"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="• 'Sedu, what time is it?' → Tells current time\n• 'Sedu, aaj kya date hai?' → Tells date\n• 'Sedu, set alarm 7:30 AM' → Sets alarm\n• 'Sedu, set timer 5 minutes' → Starts countdown\n• 'Sedu, battery kitni hai?' → Battery level"
+            android:textSize="15sp"
+            android:textColor="@color/text_light"
+            android:lineSpacingMultiplier="1.3"
+            android:layout_marginBottom="24dp"
+            android:background="@color/card_bg"
+            android:padding="16dp" />
+
+        <!-- Navigation & Apps -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🗺️  Navigation &amp; Apps"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_dark"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="• 'Sedu, navigate to Jaipur' → Opens Google Maps\n• 'Sedu, open Instagram' → Launches app\n• 'Sedu, open camera' → Opens camera\n• 'Sedu, open YouTube' → Opens any installed app"
+            android:textSize="15sp"
+            android:textColor="@color/text_light"
+            android:lineSpacingMultiplier="1.3"
+            android:layout_marginBottom="24dp"
+            android:background="@color/card_bg"
+            android:padding="16dp" />
+
+        <!-- Screen Reading -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="📱  Screen Reading"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_dark"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="• 'Sedu, read screen' → Reads what's on your screen aloud\n• 'Sedu, screen pe kya hai?' → Describes screen content\n\nRequires Accessibility Service to be enabled in Settings."
+            android:textSize="15sp"
+            android:textColor="@color/text_light"
+            android:lineSpacingMultiplier="1.3"
+            android:layout_marginBottom="24dp"
+            android:background="@color/card_bg"
+            android:padding="16dp" />
+
+        <!-- Tips -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="💡  Pro Tips"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_dark"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="• Speak clearly — Sedu works best within 1-2 meters\n• Wait for the green glow before speaking your command\n• You can give multiple commands — say 'Sedu' again while in conversation to interrupt\n• Say 'bye' or 'goodbye' to end conversation\n• Sedu stays active for 45 seconds between commands\n• Re-train your voice if others can activate Sedu\n• Sedu works offline for wake word, needs internet for commands\n• Speak naturally — Hindi, English, or mixed!"
+            android:textSize="15sp"
+            android:textColor="@color/text_light"
+            android:lineSpacingMultiplier="1.3"
+            android:layout_marginBottom="24dp"
+            android:background="@color/card_bg"
+            android:padding="16dp" />
+
+        <!-- Stop / End -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🛑  Stopping Sedu"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_dark"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="• Tap 'Stop' in app → Sedu goes to sleep mode (still listens for wake word)\n• Say 'Sedu, goodbye' → Ends current conversation\n• Sedu auto-sleeps after 45 seconds of no commands\n• Force stop from Android Settings to fully stop"
+            android:textSize="15sp"
+            android:textColor="@color/text_light"
+            android:lineSpacingMultiplier="1.3"
+            android:layout_marginBottom="24dp"
+            android:background="@color/card_bg"
+            android:padding="16dp" />
+
+        <!-- Version -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="SEDU v2.0 — Your Personal AI Voice Agent"
+            android:textSize="13sp"
+            android:textColor="@color/text_light"
+            android:gravity="center"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="32dp" />
+
+    </LinearLayout>
+</ScrollView>

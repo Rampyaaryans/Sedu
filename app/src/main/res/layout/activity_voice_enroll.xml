@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="32dp"
+    android:background="@color/bg_main">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Voice Enrollment"
+        android:textSize="28sp"
+        android:textColor="@color/primary"
+        android:textStyle="bold"
+        android:layout_marginBottom="24dp" />
+
+    <TextView
+        android:id="@+id/instructionText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Say SEDU clearly when you press Record.\nQuiet place, normal distance."
+        android:textSize="16sp"
+        android:textColor="@color/text_dark"
+        android:gravity="center"
+        android:layout_marginBottom="32dp" />
+
+    <ProgressBar
+        android:id="@+id/enrollProgress"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:progressTint="@color/primary"
+        android:progressBackgroundTint="@color/card_bg"
+        android:layout_marginBottom="16dp" />
+
+    <TextView
+        android:id="@+id/sampleCountText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Sample 0 / 10"
+        android:textSize="20sp"
+        android:textColor="@color/text_dark"
+        android:textStyle="bold"
+        android:layout_marginBottom="32dp" />
+
+    <Button
+        android:id="@+id/recordButton"
+        android:layout_width="180dp"
+        android:layout_height="180dp"
+        android:text="RECORD"
+        android:textSize="18sp"
+        android:textColor="#FFFFFF"
+        android:background="@drawable/bg_record_button"
+        android:layout_marginBottom="24dp" />
+
+    <TextView
+        android:id="@+id/statusText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textSize="16sp"
+        android:textColor="@color/green_active"
+        android:gravity="center"
+        android:layout_marginBottom="16dp" />
+
+    <Button
+        android:id="@+id/doneButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Done"
+        android:textSize="18sp"
+        android:textColor="#FFFFFF"
+        android:backgroundTint="@color/primary"
+        android:visibility="gone"
+        android:paddingHorizontal="48dp"
+        android:paddingVertical="12dp"
+        android:layout_marginBottom="8dp" />
+
+    <Button
+        android:id="@+id/resetButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Reset Voice"
+        android:textSize="14sp"
+        android:textColor="@color/red_stop"
+        android:background="@android:color/transparent"
+        android:visibility="gone"
+        android:paddingHorizontal="24dp"
+        android:paddingVertical="8dp" />
+
+</LinearLayout>

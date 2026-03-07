@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Sedu Green Theme -->
+    <color name="bg_main">#E8F8F5</color>
+    <color name="primary">#A8E6CF</color>
+    <color name="primary_dark">#7DCEA0</color>
+    <color name="accent">#98FF98</color>
+    <color name="text_dark">#2F4F4F</color>
+    <color name="text_light">#5F8F8F</color>
+    <color name="cloud">#FFFFFF</color>
+    <color name="glow_green">#A8E6CF</color>
+    <color name="glow_accent">#98FF98</color>
+    <color name="red_stop">#E57373</color>
+    <color name="green_active">#66BB6A</color>
+    <color name="card_bg">#F0FFF0</color>
+    <color name="status_bar">#D5F5E3</color>
+    
+    <!-- Legacy aliases -->
+    <color name="blue_primary">#A8E6CF</color>
+    <color name="blue_dark">#7DCEA0</color>
+    <color name="blue_light">#98FF98</color>
+    <color name="background_dark">#E8F8F5</color>
+    <color name="surface_dark">#F0FFF0</color>
+    <color name="text_primary">#2F4F4F</color>
+    <color name="text_secondary">#5F8F8F</color>
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+</resources>

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Sedu</string>
+    <string name="accessibility_description">Sedu uses accessibility to control your phone deeply — navigate apps, tap buttons, take screenshots, read screen content, and more. This is what makes Sedu an agent, not just an assistant.</string>
+</resources>
