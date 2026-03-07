@@ -22,7 +22,6 @@ import android.telecom.TelecomManager
 import android.util.Log
 import com.sedu.assistant.ai.GeminiBrain
 import com.sedu.assistant.model.SeduCommand
-import com.sedu.assistant.service.SeduAccessibilityService
 import com.sedu.assistant.tts.SeduTTS
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -71,23 +70,16 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
                     tts.speak(aiReply ?: "Kya chahiye?") { onComplete() }
                 }
                 is SeduCommand.TakeScreenshot -> {
-                    if (SeduAccessibilityService.isRunning) {
-                        tts.speak("Screenshot le raha hoon") {
-                            SeduAccessibilityService.performGlobalScreenshot()
-                            onComplete()
-                        }
-                    } else {
-                        tts.speak("Screenshot ke liye accessibility service on karo settings mein.") { onComplete() }
-                    }
+                    tts.speak("Screenshot feature abhi available nahi hai.") { onComplete() }
                 }
                 is SeduCommand.ReadNotifications -> {
-                    if (SeduAccessibilityService.isRunning) {
-                        tts.speak("Notifications khol raha hoon") {
-                            SeduAccessibilityService.performGlobalNotifications()
-                            onComplete()
-                        }
-                    } else {
-                        tts.speak("Notification ke liye accessibility on karo.") { onComplete() }
+                    tts.speak("Notifications khol raha hoon") {
+                        try {
+                            val intent = Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")
+                            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                            context.startActivity(intent)
+                        } catch (_: Exception) {}
+                        onComplete()
                     }
                 }
                 is SeduCommand.ReadScreen -> readScreen(tts, aiReply, onComplete)
@@ -540,12 +532,7 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
                 played = true
             } catch (e: Exception) { Log.e(TAG, "Play error", e) }
 
-            // Auto-click first playable after app opens
-            if (played && SeduAccessibilityService.isRunning) {
-                Handler(Looper.getMainLooper()).postDelayed({
-                    try { SeduAccessibilityService.clickFirstPlayable() } catch (_: Exception) {}
-                }, 3500)
-            }
+            // Music opened, done
             onComplete()
         }
     }
@@ -759,28 +746,7 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
     // ==================== SCREEN READING ====================
 
     private fun readScreen(tts: SeduTTS, aiReply: String?, onComplete: () -> Unit) {
-        if (!SeduAccessibilityService.isRunning) {
-            tts.speak("Screen padne ke liye accessibility service on karo settings mein.") { onComplete() }
-            return
-        }
-
-        val screenText = SeduAccessibilityService.getScreenText()
-        if (screenText.isBlank()) {
-            tts.speak("Screen pe kuch nahi dikh raha.") { onComplete() }
-            return
-        }
-
-        // Use Gemini to intelligently summarize screen content
-        if (geminiBrain != null) {
-            Thread {
-                val summary = geminiBrain.summarizeScreen(screenText)
-                Handler(Looper.getMainLooper()).post {
-                    tts.speak(summary ?: screenText.take(300)) { onComplete() }
-                }
-            }.start()
-        } else {
-            tts.speak(screenText.take(300)) { onComplete() }
-        }
+        tts.speak("Screen reading feature abhi available nahi hai.") { onComplete() }
     }
 
     // ==================== CONTACT RESOLUTION (FUZZY) ====================

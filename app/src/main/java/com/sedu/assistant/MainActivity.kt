@@ -74,19 +74,6 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         initViews()
 
-        // Request overlay permission
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
-            val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
-            @Suppress("DEPRECATION")
-            startActivityForResult(intent, OVERLAY_PERMISSION_REQUEST)
-        }
-
-        // Request new permissions for call log & SMS scanning
-        val newPerms = mutableListOf<String>()
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALL_LOG) != PackageManager.PERMISSION_GRANTED) newPerms.add(Manifest.permission.READ_CALL_LOG)
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_SMS) != PackageManager.PERMISSION_GRANTED) newPerms.add(Manifest.permission.READ_SMS)
-        if (newPerms.isNotEmpty()) ActivityCompat.requestPermissions(this, newPerms.toTypedArray(), 1002)
-
         // Force voice training if not enrolled
         val vp = VoiceProfile(this)
         if (!vp.isEnrolled()) {
