@@ -262,15 +262,16 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
             return
         }
 
-        // Search installed apps by label
+        // Search launchable apps by label (uses <queries> instead of QUERY_ALL_PACKAGES)
         val pm = context.packageManager
-        val apps = pm.getInstalledApplications(0)
-        val app = apps.find {
-            pm.getApplicationLabel(it).toString().lowercase().contains(lowerName)
+        val mainIntent = Intent(Intent.ACTION_MAIN, null).addCategory(Intent.CATEGORY_LAUNCHER)
+        val resolveInfos = pm.queryIntentActivities(mainIntent, 0)
+        val match = resolveInfos.find {
+            it.loadLabel(pm).toString().lowercase().contains(lowerName)
         }
 
-        if (app != null) {
-            val intent = pm.getLaunchIntentForPackage(app.packageName)
+        if (match != null) {
+            val intent = pm.getLaunchIntentForPackage(match.activityInfo.packageName)
             if (intent != null) {
                 tts.speak(aiReply ?: "$appName khol raha hoon") {
                     intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
