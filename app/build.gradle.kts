@@ -21,8 +21,8 @@ android {
         applicationId = "com.sedu.assistant"
         minSdk = 21
         targetSdk = 34
-        versionCode = 8
-        versionName = "1.4.3"
+        versionCode = 9
+        versionName = "1.4.4"
 
         // Inject API keys as BuildConfig fields
         buildConfigField("String", "GROQ_API_KEY", "\"${loadApiKey("GROQ_API_KEY")}\"")
