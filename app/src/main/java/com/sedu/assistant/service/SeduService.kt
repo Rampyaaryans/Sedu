@@ -51,13 +51,13 @@ class SeduService : Service() {
     private var hasPromptedOnSilence = false
     private var speechErrorCount = 0
     private var wakeWordWatchdog: Runnable? = null
-    private val WATCHDOG_INTERVAL_MS = 60_000L
+    private val WATCHDOG_INTERVAL_MS = 30_000L
 
     private val inactivityChecker = object : Runnable {
         override fun run() {
             if (inConversation && System.currentTimeMillis() - lastActivityTime > INACTIVITY_TIMEOUT_MS) {
                 Log.d(TAG, "Inactivity timeout - ending conversation")
-                seduTTS?.speak("Koi response nahi mila, band kar raha hoon") {
+                seduTTS?.speak("Koi jawaab nahi aaya, band kar raha hoon") {
                     endConversation()
                 }
             } else if (inConversation) {
@@ -271,10 +271,12 @@ class SeduService : Service() {
         try { overlay?.setConversationMode() } catch (e: Exception) { }
 
         currentState = SeduServiceState.LISTENING_COMMAND
-        updateNotification("Listening... speak now")
+        updateNotification("Sun raha hoon...")
 
-        // Start listening RIGHT AWAY — no TTS delay
-        startCommandListening()
+        // Speak greeting THEN start listening
+        seduTTS?.speak("Boliye, kya kaam hai?") {
+            if (inConversation) startCommandListening()
+        }
     }
 
     /**
@@ -286,6 +288,7 @@ class SeduService : Service() {
         seduTTS?.stop()
         speechEngine?.stop()
         speechEngine = null
+        geminiBrain?.cancelActiveRequest()
         geminiThread?.interrupt()
         geminiThread = null
         wakeWordEngine?.stop()
@@ -300,12 +303,16 @@ class SeduService : Service() {
         try { overlay?.setConversationMode() } catch (e: Exception) { }
 
         currentState = SeduServiceState.LISTENING_COMMAND
-        updateNotification("Listening... speak now")
+        updateNotification("Sun raha hoon...")
 
-        // Short delay then start fresh recognizer
-        Handler(Looper.getMainLooper()).postDelayed({
-            if (inConversation) startGoogleSpeechRecognizer()
-        }, 150)
+        // Speak greeting then start fresh recognizer
+        seduTTS?.speak("Haan boliye?") {
+            if (inConversation) {
+                Handler(Looper.getMainLooper()).postDelayed({
+                    if (inConversation) startGoogleSpeechRecognizer()
+                }, 100)
+            }
+        }
     }
 
     private fun startCommandListening() {
@@ -315,22 +322,19 @@ class SeduService : Service() {
         }
 
         currentState = SeduServiceState.LISTENING_COMMAND
-        updateNotification("Listening for command...")
+        updateNotification("Aapki baat sun raha hoon...")
         try { overlay?.setConversationMode() } catch (e: Exception) { }
 
         // Stop wake word engine (it holds the mic)
         wakeWordEngine?.stop()
 
-        // If SpeechEngine already exists, just restart it (continuous — no gap, no beep)
-        if (speechEngine != null) {
-            speechEngine?.restartForNextCommand()
-            return
-        }
+        // Always create fresh SpeechEngine to avoid stale state
+        speechEngine?.stop()
+        speechEngine = null
 
-        // First time in conversation — create new engine (only beep will be muted)
         Handler(Looper.getMainLooper()).postDelayed({
             if (inConversation) startGoogleSpeechRecognizer()
-        }, 100)
+        }, 150)
     }
 
     private val WAKE_WORDS_IN_SPEECH = listOf("sedu", "said you", "say do", "see do", "se do", "said do", "so do")
@@ -371,7 +375,7 @@ class SeduService : Service() {
                         if (inConversation) startCommandListening()
                     }
                 } else {
-                    seduTTS?.speak("Koi response nahi mila, bye") {
+                    seduTTS?.speak("Koi jawaab nahi aaya, alvida") {
                         endConversation()
                     }
                 }
@@ -383,11 +387,11 @@ class SeduService : Service() {
                 speechEngine = null
                 speechErrorCount++
                 if (speechErrorCount <= 1 && inConversation) {
-                    seduTTS?.speak("Sunne mein thodi dikkat aayi, ek baar aur try karta hoon") {
+                    seduTTS?.speak("Sunne mein thodi dikkat aayi, dobara koshish karta hoon") {
                         if (inConversation) startCommandListening()
                     }
                 } else {
-                    seduTTS?.speak("Thodi technical dikkat hai") {
+                    seduTTS?.speak("Thodi dikkat aa rahi hai") {
                         endConversation()
                     }
                 }
@@ -454,7 +458,7 @@ class SeduService : Service() {
 
     private fun executeCommand(command: SeduCommand, aiReply: String?) {
         if (command is SeduCommand.Goodbye) {
-            val reply = aiReply ?: "Theek hai, bye!"
+            val reply = aiReply ?: "Theek hai, alvida!"
             seduTTS?.speak(reply) {
                 endConversation()
             }
@@ -463,7 +467,7 @@ class SeduService : Service() {
 
         // AskUser — Gemini wants to clarify something, speak question then listen for answer
         if (command is SeduCommand.AskUser) {
-            val reply = aiReply ?: "Kya chahiye exactly?"
+            val reply = aiReply ?: "Kya chahiye bilkul?"
             seduTTS?.speak(reply) {
                 // After asking, listen for user's answer
                 if (inConversation) startCommandListening() else endConversation()
@@ -473,7 +477,7 @@ class SeduService : Service() {
 
         // Greeting from AI
         if (command is SeduCommand.Unknown && command.rawText.startsWith("greeting")) {
-            val reply = aiReply ?: "Hello! Kya help karun?"
+            val reply = aiReply ?: "Namaste! Kya madad karun?"
             seduTTS?.speak(reply) {
                 if (inConversation) startCommandListening() else endConversation()
             }
@@ -531,7 +535,7 @@ class SeduService : Service() {
         try { overlay?.hide() } catch (_: Exception) {}
 
         currentState = SeduServiceState.LISTENING_WAKE_WORD
-        updateNotification("Sedu sleeping — say 'Sedu' to wake")
+        updateNotification("Sedu so raha hai — 'Sedu' bolke jagao")
 
         // Keep wake word listening
         startWakeWordListening()
@@ -565,6 +569,7 @@ class SeduService : Service() {
     private fun endConversation() {
         Log.d(TAG, "Ending conversation")
         inConversation = false
+        geminiBrain?.cancelActiveRequest()
         geminiThread?.interrupt()
         geminiThread = null
         inactivityHandler.removeCallbacks(inactivityChecker)

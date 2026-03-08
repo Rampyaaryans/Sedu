@@ -58,8 +58,10 @@ class SeduTTS(context: Context) {
                 logAllVoices()
                 selectVoices()
 
-                tts?.setPitch(0.82f)
-                tts?.setSpeechRate(0.95f)
+                // Set Hindi locale for pure Hindi output
+                tts?.language = Locale("hi", "IN")
+                tts?.setPitch(0.95f)
+                tts?.setSpeechRate(0.85f)
 
                 isReady = true
                 Log.d(TAG, "TTS ready, hindi=${hindiVoice?.name}, english=${englishVoice?.name}")
@@ -85,24 +87,20 @@ class SeduTTS(context: Context) {
     }
 
     /**
-     * Select both Hindi and English voices for hybrid switching.
+     * Select Hindi voice for pure Hindi output.
      */
     private fun selectVoices() {
         try {
             val voices = tts?.voices ?: return
             val voiceMap = voices.associateBy { it.name }
 
-            // Hindi voice preferences (for Hindi/Hinglish text)
+            // Hindi voice preferences (best quality first)
             val hindiPrefs = listOf(
-                "hi-in-x-hie-local",    // Hindi male E (smoother)
+                "hi-in-x-hid-local",    // Hindi female D (clearest)
+                "hi-in-x-hia-local",    // Hindi female A
+                "hi-in-x-hie-local",    // Hindi male E
                 "hi-in-x-hic-local",    // Hindi male C
-            )
-
-            // English voice preferences (for pure English text)
-            val englishPrefs = listOf(
-                "en-in-x-enc-local",    // Indian English male C (clear)
-                "en-in-x-end-local",    // Indian English male D
-                "en-in-x-ene-local",    // Indian English male E
+                "hi-in-x-hib-local",    // Hindi B
             )
 
             for (name in hindiPrefs) {
@@ -110,18 +108,20 @@ class SeduTTS(context: Context) {
                 if (v != null) { hindiVoice = v; break }
             }
 
-            for (name in englishPrefs) {
-                val v = voiceMap[name]
-                if (v != null) { englishVoice = v; break }
+            // Fallback: any offline Hindi voice
+            if (hindiVoice == null) {
+                hindiVoice = voices.firstOrNull {
+                    it.locale.language == "hi" && !it.isNetworkConnectionRequired
+                }
             }
 
-            // Set Hindi as default since most Sedu responses are Hinglish
-            val defaultVoice = hindiVoice ?: englishVoice
+            // Set Hindi as the ONLY voice
+            val defaultVoice = hindiVoice
             if (defaultVoice != null) {
                 tts?.voice = defaultVoice
             }
 
-            Log.d(TAG, "Hindi voice: ${hindiVoice?.name}, English voice: ${englishVoice?.name}")
+            Log.d(TAG, "Hindi voice selected: ${hindiVoice?.name}")
         } catch (e: Exception) {
             Log.e(TAG, "Voice selection error", e)
         }
@@ -165,19 +165,13 @@ class SeduTTS(context: Context) {
             })
         }
 
-        // Pick voice based on text language
-        val useHindi = isHindiText(text)
-        val targetVoice = if (useHindi) hindiVoice else englishVoice
-        if (targetVoice != null && tts?.voice?.name != targetVoice.name) {
-            tts?.voice = targetVoice
-            Log.d(TAG, "Switched to ${if (useHindi) "HINDI" else "ENGLISH"} voice for: $text")
+        // Always use Hindi voice for pure Hindi output
+        if (hindiVoice != null && tts?.voice?.name != hindiVoice!!.name) {
+            tts?.voice = hindiVoice
         }
 
-        // Apply pronunciation fixes only for English voice (Hindi voice handles Hindi natively)
-        val spokenText = if (!useHindi) fixPronunciation(text) else text
-
-        tts?.speak(spokenText, TextToSpeech.QUEUE_ADD, null, utteranceId)
-        Log.d(TAG, "Speaking [${if (useHindi) "HI" else "EN"}]: $spokenText")
+        tts?.speak(text, TextToSpeech.QUEUE_ADD, null, utteranceId)
+        Log.d(TAG, "Speaking [HI]: $text")
     }
 
     /**

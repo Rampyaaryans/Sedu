@@ -70,10 +70,10 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
                     tts.speak(aiReply ?: "Kya chahiye?") { onComplete() }
                 }
                 is SeduCommand.TakeScreenshot -> {
-                    tts.speak("Screenshot feature abhi available nahi hai.") { onComplete() }
+                    tts.speak("Yeh kaam abhi nahi ho sakta.") { onComplete() }
                 }
                 is SeduCommand.ReadNotifications -> {
-                    tts.speak("Notifications khol raha hoon") {
+                    tts.speak("Soochna dikhata hoon") {
                         try {
                             val intent = Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")
                             intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
@@ -84,7 +84,7 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
                 }
                 is SeduCommand.ReadScreen -> readScreen(tts, aiReply, onComplete)
                 is SeduCommand.Goodbye -> {
-                    tts.speak(aiReply ?: "Chal bye! Jab chahein bulana.") { onComplete() }
+                    tts.speak(aiReply ?: "Chal alvida! Jab chahein bulana.") { onComplete() }
                 }
                 is SeduCommand.Unknown -> {
                     tts.speak(aiReply ?: "Boliye, main sun raha hoon") { onComplete() }
@@ -92,7 +92,7 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error executing command", e)
-            tts.speak("Error aa gaya, sorry.") { onComplete() }
+            tts.speak("Error aa gaya, maafi chahta hoon.") { onComplete() }
         }
     }
 
@@ -138,7 +138,7 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
             }
         } else {
             Log.w(TAG, "makeCall: contact '$contact' NOT FOUND in contacts")
-            tts.speak("$contact contacts mein nahi mila, dialer khol raha hoon") {
+            tts.speak("$contact nahi mila, dialer khol raha hoon") {
                 try {
                     val intent = Intent(Intent.ACTION_DIAL).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
                     context.startActivity(intent)
@@ -305,7 +305,7 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
             "security" -> Settings.ACTION_SECURITY_SETTINGS
             else -> Settings.ACTION_SETTINGS
         }
-        tts.speak(aiReply ?: "Settings khol raha hoon") {
+        tts.speak(aiReply ?: "Jagah khol raha hoon") {
             try {
                 val intent = Intent(action).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
                 context.startActivity(intent)
@@ -317,19 +317,19 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
     // ==================== INFO ====================
 
     private fun tellTime(tts: SeduTTS, onComplete: () -> Unit) {
-        val time = SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date())
+        val time = SimpleDateFormat("h:mm a", Locale("hi", "IN")).format(Date())
         tts.speak("Abhi $time baj rahe hain") { onComplete() }
     }
 
     private fun tellDate(tts: SeduTTS, onComplete: () -> Unit) {
-        val date = SimpleDateFormat("EEEE, d MMMM yyyy", Locale.getDefault()).format(Date())
+        val date = SimpleDateFormat("EEEE, d MMMM yyyy", Locale("hi", "IN")).format(Date())
         tts.speak("Aaj $date hai") { onComplete() }
     }
 
     private fun tellBattery(tts: SeduTTS, onComplete: () -> Unit) {
         val bm = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
         val level = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
-        tts.speak("Battery $level percent hai") { onComplete() }
+        tts.speak("Battery $level pratishat hai") { onComplete() }
     }
 
     // ==================== VOLUME & SOUND ====================
@@ -338,20 +338,20 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
         val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
         am.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_RAISE, AudioManager.FLAG_SHOW_UI)
         am.adjustStreamVolume(AudioManager.STREAM_RING, AudioManager.ADJUST_RAISE, AudioManager.FLAG_SHOW_UI)
-        tts.speak("Volume badha diya") { onComplete() }
+        tts.speak("Awaaz badha di") { onComplete() }
     }
 
     private fun volumeDown(tts: SeduTTS, onComplete: () -> Unit) {
         val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
         am.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI)
         am.adjustStreamVolume(AudioManager.STREAM_RING, AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI)
-        tts.speak("Volume kam kiya") { onComplete() }
+        tts.speak("Awaaz kam kar di") { onComplete() }
     }
 
     private fun mutePhone(tts: SeduTTS, onComplete: () -> Unit) {
         val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
         am.ringerMode = AudioManager.RINGER_MODE_SILENT
-        tts.speak("Phone silent kar diya") { onComplete() }
+        tts.speak("Fon chup kar diya") { onComplete() }
     }
 
     // ==================== HARDWARE TOGGLES ====================
@@ -361,12 +361,12 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
             try {
                 val cm = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
                 cm.setTorchMode(cm.cameraIdList[0], true)
-                tts.speak("Torch on") { onComplete() }
+                tts.speak("Torch chalu") { onComplete() }
             } catch (e: Exception) {
-                tts.speak("Torch on nahi ho raha") { onComplete() }
+                tts.speak("Torch chalu nahi ho raha") { onComplete() }
             }
         } else {
-            tts.speak("Torch support nahi hai") { onComplete() }
+            tts.speak("Torch nahi hai") { onComplete() }
         }
     }
 
@@ -375,18 +375,18 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
             try {
                 val cm = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
                 cm.setTorchMode(cm.cameraIdList[0], false)
-                tts.speak("Torch off") { onComplete() }
+                tts.speak("Torch band") { onComplete() }
             } catch (e: Exception) {
-                tts.speak("Torch off nahi ho raha") { onComplete() }
+                tts.speak("Torch band nahi ho raha") { onComplete() }
             }
         } else {
-            tts.speak("Torch support nahi hai") { onComplete() }
+            tts.speak("Torch nahi hai") { onComplete() }
         }
     }
 
     private fun wifiToggle(enable: Boolean, tts: SeduTTS, onComplete: () -> Unit) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            tts.speak("WiFi settings khol raha hoon") {
+            tts.speak("WiFi ki jagah khol raha hoon") {
                 try {
                     val intent = Intent(Settings.Panel.ACTION_WIFI).apply {
                         flags = Intent.FLAG_ACTIVITY_NEW_TASK
@@ -400,13 +400,13 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
             val wm = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
             @Suppress("DEPRECATION")
             wm.isWifiEnabled = enable
-            tts.speak(if (enable) "WiFi on kar diya" else "WiFi off kar diya") { onComplete() }
+            tts.speak(if (enable) "WiFi chalu kar diya" else "WiFi band kar diya") { onComplete() }
         }
     }
 
     private fun bluetoothToggle(enable: Boolean, tts: SeduTTS, onComplete: () -> Unit) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            tts.speak("Bluetooth settings khol raha hoon") {
+            tts.speak("Bluetooth ki jagah khol raha hoon") {
                 try {
                     val intent = Intent(Settings.ACTION_BLUETOOTH_SETTINGS).apply {
                         flags = Intent.FLAG_ACTIVITY_NEW_TASK
@@ -422,12 +422,12 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
                 if (ba != null) {
                     @Suppress("DEPRECATION", "MissingPermission")
                     if (enable) ba.enable() else ba.disable()
-                    tts.speak(if (enable) "Bluetooth on" else "Bluetooth off") { onComplete() }
+                    tts.speak(if (enable) "Bluetooth chalu" else "Bluetooth band") { onComplete() }
                 } else {
-                    tts.speak("Bluetooth support nahi hai") { onComplete() }
+                    tts.speak("Bluetooth nahi hai") { onComplete() }
                 }
             } catch (e: Exception) {
-                tts.speak("Bluetooth settings khol raha hoon") {
+                tts.speak("Bluetooth ki jagah khol raha hoon") {
                     try {
                         val intent = Intent(Settings.ACTION_BLUETOOTH_SETTINGS).apply {
                             flags = Intent.FLAG_ACTIVITY_NEW_TASK
@@ -444,7 +444,7 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
         try {
             val cr = context.contentResolver
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.System.canWrite(context)) {
-                tts.speak("Brightness permission chahiye, settings khol raha hoon") {
+                tts.speak("Roshni ki anumati chahiye, jagah khol raha hoon") {
                     try {
                         val intent = Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
                             data = Uri.parse("package:${context.packageName}")
@@ -461,10 +461,10 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
             val current = Settings.System.getInt(cr, Settings.System.SCREEN_BRIGHTNESS, 128)
             val newVal = if (increase) (current + 50).coerceAtMost(255) else (current - 50).coerceAtLeast(10)
             Settings.System.putInt(cr, Settings.System.SCREEN_BRIGHTNESS, newVal)
-            tts.speak(if (increase) "Brightness badha di" else "Brightness kam ki") { onComplete() }
+            tts.speak(if (increase) "Roshni badha di" else "Roshni kam kar di") { onComplete() }
         } catch (e: Exception) {
             Log.e(TAG, "Brightness error", e)
-            tts.speak("Brightness change nahi ho rahi") { onComplete() }
+            tts.speak("Roshni badal nahi pa raha") { onComplete() }
         }
     }
 

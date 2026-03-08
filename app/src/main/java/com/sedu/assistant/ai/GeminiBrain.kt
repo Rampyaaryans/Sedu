@@ -33,11 +33,11 @@ class GeminiBrain {
         private const val SYSTEM_PROMPT = """You are SEDU — a BRILLIANT personal AI assistant, like Jarvis from Iron Man. You control an Android phone. You are the user's best friend, smartest helper, and always ready to chat, joke, help, or take action.
 
 PERSONALITY:
-- Talk like a close friend in Hinglish (Hindi + English mix)
-- Be warm, witty, confident — never boring or robotic
-- Use casual language: "bhai", "yaar", "haan", "theek hai", etc.
-- For greetings: be enthusiastic! "Kya haal hai" → respond warmly like a real friend
-- Show personality — you're not just an assistant, you're SEDU
+- ALWAYS respond in SHUDDH HINDI (pure Hindi) — NO English words at all
+- Use simple, everyday spoken Hindi that any Indian can understand easily
+- Be warm and friendly like a close dost: "bhai", "yaar", "haan", "theek hai"
+- Keep sentences SHORT and SIMPLE — TTS will speak your words, clarity is critical
+- Show personality — tu SEDU hai, sabse smart Hindi voice assistant
 
 ABSOLUTE RULES:
 1. NEVER return "unknown". ALWAYS do something useful — action or chat.
@@ -47,7 +47,8 @@ ABSOLUTE RULES:
 5. Use "search" ONLY when user EXPLICITLY says "search", "google kar", "google search", "internet pe dhundh".
 6. For ACTIONS: just DO it. Be decisive.
 7. If STT is garbled but you can GUESS — go with best guess.
-8. reply for actions should be SHORT (max 25 words). reply for chat/greeting can be LONG (up to 120 words).
+8. Reply for actions: VERY SHORT (max 15 words). Reply for chat: up to 80 words. ALWAYS in PURE HINDI.
+9. Use simple everyday Hindi words. Avoid difficult literary Hindi. Short clear sentences for TTS.
 
 SMART DECISION RULES:
 - "play music" / "kuch sunao" with NO specific song → use "ask_user" with reply asking WHAT to play
@@ -106,6 +107,7 @@ EXAMPLES:
 
     private var geminiKey: String? = BuildConfig.GEMINI_API_KEY.ifBlank { DEFAULT_GEMINI_KEY.ifBlank { null } }
     private var groqKey: String? = BuildConfig.GROQ_API_KEY.ifBlank { DEFAULT_GROQ_KEY.ifBlank { null } }
+    @Volatile private var activeConnection: HttpURLConnection? = null
 
     fun setApiKey(key: String) {
         if (key.isNotBlank()) geminiKey = key
@@ -116,6 +118,12 @@ EXAMPLES:
     }
 
     fun hasApiKey(): Boolean = !groqKey.isNullOrBlank() || !geminiKey.isNullOrBlank()
+
+    /** Cancel any active HTTP request (called from interruptAll) */
+    fun cancelActiveRequest() {
+        try { activeConnection?.disconnect() } catch (_: Exception) {}
+        activeConnection = null
+    }
 
     private var contactNames: String = ""
 
@@ -157,9 +165,11 @@ EXAMPLES:
     // ==================== GROQ (OpenAI-compatible) ====================
 
     private fun callGroq(prompt: String): AIResponse? {
+        if (Thread.interrupted()) return null
+        var connection: HttpURLConnection? = null
         try {
-            val url = URL(GROQ_URL)
-            val connection = url.openConnection() as HttpURLConnection
+            connection = URL(GROQ_URL).openConnection() as HttpURLConnection
+            activeConnection = connection
             connection.requestMethod = "POST"
             connection.setRequestProperty("Content-Type", "application/json")
             connection.setRequestProperty("Authorization", "Bearer $groqKey")
@@ -184,6 +194,8 @@ EXAMPLES:
             writer.flush()
             writer.close()
 
+            if (Thread.interrupted()) return null
+
             val responseCode = connection.responseCode
             if (responseCode != 200) {
                 val errorStream = connection.errorStream
@@ -197,13 +209,16 @@ EXAMPLES:
             val reader = BufferedReader(InputStreamReader(connection.inputStream))
             val response = reader.readText()
             reader.close()
-            connection.disconnect()
 
             return parseGroqResponse(response)
 
         } catch (e: Exception) {
+            if (Thread.interrupted()) return null
             Log.e(TAG, "Groq call failed: ${e.message}")
             return null
+        } finally {
+            try { connection?.disconnect() } catch (_: Exception) {}
+            activeConnection = null
         }
     }
 
@@ -240,9 +255,11 @@ EXAMPLES:
     // ==================== GEMINI (fallback) ====================
 
     private fun callGemini(prompt: String): AIResponse? {
+        if (Thread.interrupted()) return null
+        var connection: HttpURLConnection? = null
         try {
-            val url = URL("$GEMINI_URL?key=$geminiKey")
-            val connection = url.openConnection() as HttpURLConnection
+            connection = URL("$GEMINI_URL?key=$geminiKey").openConnection() as HttpURLConnection
+            activeConnection = connection
             connection.requestMethod = "POST"
             connection.setRequestProperty("Content-Type", "application/json")
             connection.connectTimeout = 5000
@@ -268,6 +285,8 @@ EXAMPLES:
             writer.flush()
             writer.close()
 
+            if (Thread.interrupted()) return null
+
             val responseCode = connection.responseCode
             if (responseCode != 200) {
                 val errorStream = connection.errorStream
@@ -281,13 +300,16 @@ EXAMPLES:
             val reader = BufferedReader(InputStreamReader(connection.inputStream))
             val response = reader.readText()
             reader.close()
-            connection.disconnect()
 
             return parseGeminiResponse(response)
 
         } catch (e: Exception) {
+            if (Thread.interrupted()) return null
             Log.e(TAG, "Gemini call failed: ${e.message}")
             return null
+        } finally {
+            try { connection?.disconnect() } catch (_: Exception) {}
+            activeConnection = null
         }
     }
 
@@ -410,90 +432,108 @@ Summarize what's on the screen in 2-3 SHORT sentences in casual Hinglish. Focus 
 
     /** Raw Groq call that returns plain text (not JSON-parsed) */
     private fun callGroqRaw(prompt: String): String? {
-        val url = URL(GROQ_URL)
-        val connection = url.openConnection() as HttpURLConnection
-        connection.requestMethod = "POST"
-        connection.setRequestProperty("Content-Type", "application/json")
-        connection.setRequestProperty("Authorization", "Bearer $groqKey")
-        connection.connectTimeout = 5000
-        connection.readTimeout = 8000
-        connection.doOutput = true
+        if (Thread.interrupted()) return null
+        var connection: HttpURLConnection? = null
+        try {
+            connection = URL(GROQ_URL).openConnection() as HttpURLConnection
+            activeConnection = connection
+            connection.requestMethod = "POST"
+            connection.setRequestProperty("Content-Type", "application/json")
+            connection.setRequestProperty("Authorization", "Bearer $groqKey")
+            connection.connectTimeout = 5000
+            connection.readTimeout = 8000
+            connection.doOutput = true
 
-        val requestBody = JSONObject().apply {
-            put("model", GROQ_MODEL)
-            put("messages", JSONArray().apply {
-                put(JSONObject().apply {
-                    put("role", "user")
-                    put("content", prompt)
+            val requestBody = JSONObject().apply {
+                put("model", GROQ_MODEL)
+                put("messages", JSONArray().apply {
+                    put(JSONObject().apply {
+                        put("role", "user")
+                        put("content", prompt)
+                    })
                 })
-            })
-            put("temperature", 0.3)
-            put("max_tokens", 200)
+                put("temperature", 0.3)
+                put("max_tokens", 200)
+            }
+
+            val writer = OutputStreamWriter(connection.outputStream)
+            writer.write(requestBody.toString())
+            writer.flush()
+            writer.close()
+
+            if (connection.responseCode != 200) return null
+
+            val reader = BufferedReader(InputStreamReader(connection.inputStream))
+            val response = reader.readText()
+            reader.close()
+
+            val json = JSONObject(response)
+            return json.getJSONArray("choices")
+                .getJSONObject(0)
+                .getJSONObject("message")
+                .getString("content")
+                .trim()
+        } catch (e: Exception) {
+            Log.e(TAG, "Groq raw call failed: ${e.message}")
+            return null
+        } finally {
+            try { connection?.disconnect() } catch (_: Exception) {}
+            activeConnection = null
         }
-
-        val writer = OutputStreamWriter(connection.outputStream)
-        writer.write(requestBody.toString())
-        writer.flush()
-        writer.close()
-
-        if (connection.responseCode != 200) return null
-
-        val reader = BufferedReader(InputStreamReader(connection.inputStream))
-        val response = reader.readText()
-        reader.close()
-        connection.disconnect()
-
-        val json = JSONObject(response)
-        return json.getJSONArray("choices")
-            .getJSONObject(0)
-            .getJSONObject("message")
-            .getString("content")
-            .trim()
     }
 
     /** Raw Gemini call that returns plain text (not JSON-parsed) */
     private fun callGeminiRaw(prompt: String): String? {
-        val url = URL("$GEMINI_URL?key=$geminiKey")
-        val connection = url.openConnection() as HttpURLConnection
-        connection.requestMethod = "POST"
-        connection.setRequestProperty("Content-Type", "application/json")
-        connection.connectTimeout = 5000
-        connection.readTimeout = 8000
-        connection.doOutput = true
+        if (Thread.interrupted()) return null
+        var connection: HttpURLConnection? = null
+        try {
+            connection = URL("$GEMINI_URL?key=$geminiKey").openConnection() as HttpURLConnection
+            activeConnection = connection
+            connection.requestMethod = "POST"
+            connection.setRequestProperty("Content-Type", "application/json")
+            connection.connectTimeout = 5000
+            connection.readTimeout = 8000
+            connection.doOutput = true
 
-        val requestBody = JSONObject().apply {
-            put("contents", JSONArray().apply {
-                put(JSONObject().apply {
-                    put("parts", JSONArray().apply {
-                        put(JSONObject().put("text", prompt))
+            val requestBody = JSONObject().apply {
+                put("contents", JSONArray().apply {
+                    put(JSONObject().apply {
+                        put("parts", JSONArray().apply {
+                            put(JSONObject().put("text", prompt))
+                        })
                     })
                 })
-            })
-            put("generationConfig", JSONObject().apply {
-                put("temperature", 0.3)
-                put("maxOutputTokens", 200)
-            })
+                put("generationConfig", JSONObject().apply {
+                    put("temperature", 0.3)
+                    put("maxOutputTokens", 200)
+                })
+            }
+
+            val writer = OutputStreamWriter(connection.outputStream)
+            writer.write(requestBody.toString())
+            writer.flush()
+            writer.close()
+
+            if (connection.responseCode != 200) return null
+
+            val reader = BufferedReader(InputStreamReader(connection.inputStream))
+            val response = reader.readText()
+            reader.close()
+
+            val json = JSONObject(response)
+            return json.getJSONArray("candidates")
+                .getJSONObject(0)
+                .getJSONObject("content")
+                .getJSONArray("parts")
+                .getJSONObject(0)
+                .getString("text")
+                .trim()
+        } catch (e: Exception) {
+            Log.e(TAG, "Gemini raw call failed: ${e.message}")
+            return null
+        } finally {
+            try { connection?.disconnect() } catch (_: Exception) {}
+            activeConnection = null
         }
-
-        val writer = OutputStreamWriter(connection.outputStream)
-        writer.write(requestBody.toString())
-        writer.flush()
-        writer.close()
-
-        if (connection.responseCode != 200) return null
-
-        val reader = BufferedReader(InputStreamReader(connection.inputStream))
-        val response = reader.readText()
-        reader.close()
-        connection.disconnect()
-
-        val json = JSONObject(response)
-        return json.getJSONArray("candidates")
-            .getJSONObject(0)
-            .getJSONObject("content")
-            .getJSONArray("parts")
-            .getJSONObject(0)
-            .getString("text")
-            .trim()
     }
 }

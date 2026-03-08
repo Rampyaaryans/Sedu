@@ -92,6 +92,7 @@ class WakeWordEngine(
                 android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO)
                 Log.d(TAG, "Wake word listening started (grammar mode)")
                 val buffer = ShortArray(2048)
+                try {
                 while (isListening) {
                     try {
                         val read = audioRecord?.read(buffer, 0, buffer.size) ?: 0
@@ -130,6 +131,13 @@ class WakeWordEngine(
                             Log.e(TAG, "Error in listen loop", e)
                         }
                     }
+                }
+                } finally {
+                    // ALWAYS release audio resources even if thread crashes
+                    try { audioRecord?.stop() } catch (_: Exception) {}
+                    try { audioRecord?.release() } catch (_: Exception) {}
+                    try { recognizer?.close() } catch (_: Exception) {}
+                    Log.d(TAG, "Wake word thread exiting, resources released")
                 }
             }
             listenThread?.name = "SeduWakeWord"
