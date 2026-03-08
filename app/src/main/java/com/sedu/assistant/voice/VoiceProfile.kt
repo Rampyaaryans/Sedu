@@ -17,7 +17,7 @@ class VoiceProfile(private val context: Context) {
         private const val KEY_STD_MFCC = "std_mfcc"
         private const val KEY_ENROLLED = "enrolled"
         private const val KEY_THRESHOLD = "threshold"
-        private const val DEFAULT_THRESHOLD = 0.88f
+        private const val DEFAULT_THRESHOLD = 0.72f
     }
 
     private val mfccExtractor = MFCCExtractor()

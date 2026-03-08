@@ -32,32 +32,43 @@ class WakeWordEngine(
         private const val SAMPLE_RATE = 16000
         private const val BUFFER_SIZE = 32000 // 2 seconds at 16kHz
 
-        // English phonetic grammar — maps "सेडू" sound to English word pairs
-        private const val EN_GRAMMAR = "[\"say do\", \"said you\", \"see do\", \"said do\", \"se do\", \"so do\", \"say due\", \"so due\", \"say two\", \"so two\", \"set do\", \"said dew\", \"said due\", \"said two\", \"say you\", \"see due\", \"see two\", \"say dew\", \"see dew\", \"set due\", \"set two\", \"sat do\", \"sat due\", \"[unk]\"]"
+        // Minimum RMS energy — very low to not miss anything
+        private const val MIN_WAKE_RMS = 80.0
 
-        // Hindi Devanagari grammar — direct recognition of सेडू
-        private const val HI_GRAMMAR = "[\"सेडू\", \"सेडु\", \"से डू\", \"से डु\", \"सैडू\", \"सैडु\", \"सेदू\", \"सेदु\", \"सीडू\", \"सीडु\", \"[unk]\"]"
-
-        // English wake word set for O(1) lookup
-        private val EN_WAKE_WORDS = setOf(
-            "say do", "see do", "said do", "said you",
-            "se do", "so do", "say due", "so due",
-            "say two", "so two", "set do",
-            "said dew", "said due", "said two",
-            "say you", "see due", "see two",
-            "say dew", "see dew", "set due", "set two",
-            "sat do", "sat due"
+        // English patterns that Vosk outputs when you say "सेडू" / "Sedu"
+        // Free-form recognition — no grammar, match output with regex
+        private val EN_PATTERNS = listOf(
+            Regex("\\bsa[iy]d?\\s*d[uo]\\b", RegexOption.IGNORE_CASE),      // say do, said do, say du
+            Regex("\\bse[ea]?d?\\s*[dt][uo]o?\\b", RegexOption.IGNORE_CASE), // se do, see do, sed do, see too
+            Regex("\\bse[ea]?\\s*d[uo]\\b", RegexOption.IGNORE_CASE),        // se du, sea do
+            Regex("\\bset?\\s*d[uo]o?\\b", RegexOption.IGNORE_CASE),         // set do, set due
+            Regex("\\bsaid?\\s*(you|due|dew|two)\\b", RegexOption.IGNORE_CASE), // said you, say due
+            Regex("\\bced[ae]r?\\b", RegexOption.IGNORE_CASE),               // cedar (common mishear)
+            Regex("\\bsedu\\b", RegexOption.IGNORE_CASE),                     // direct "sedu" if model knows it
+            Regex("\\bsay\\s*d[uo]o?\\b", RegexOption.IGNORE_CASE),          // say doo, say du
+            Regex("\\bso\\s*d[uo]o?\\b", RegexOption.IGNORE_CASE),           // so do, so due
+            Regex("\\bsat?\\s*d[uo]o?\\b", RegexOption.IGNORE_CASE),         // sat do, sa du
+            Regex("\\bs[ae]d[uo]\\b", RegexOption.IGNORE_CASE),              // sadu, sedu joined
         )
 
-        // Hindi wake word set
-        private val HI_WAKE_WORDS = setOf(
-            "सेडू", "सेडु", "से डू", "से डु",
-            "सैडू", "सैडु", "सेदू", "सेदु",
-            "सीडू", "सीडु"
+        // Hindi patterns — what Hindi Vosk model outputs for "सेडू" sound
+        // Since सेडू is not a real word, the model maps it to close real Hindi words/syllables
+        private val HI_PATTERNS = listOf(
+            Regex("से\\s*[डद][ूु]"),            // से डू, से डु, सेदू, सेदु
+            Regex("सेड[ूु]"),                    // सेडू, सेडु (if model has it)
+            Regex("सै[डद][ूु]"),                 // सैडू, सैडु
+            Regex("सी[डद][ूु]"),                 // सीडू, सीडु
+            Regex("से\\s*[तट]\\s*[डद][ूु]"),     // सेट डू
+            Regex("सेठ[ूु]"),                     // सेठू (close sound)
+            Regex("से\\s*द[ोू]"),                 // से दो, से दू
+            Regex("छेड़?[ूु]"),                   // छेडू, छेड़ू
+            Regex("सेर[ूु]"),                     // सेरू
+            Regex("से\\s*र[ूु]"),                 // से रू
+            Regex("शेड[ूु]"),                     // शेडू
+            Regex("चेद[ूु]"),                     // चेदू
+            Regex("से\\s*ड"),                     // से ड (partial match ok)
+            Regex("स[ेै]\\s*[डदतट]"),             // broad: से/सै + ड/द/त/ट
         )
-
-        // Minimum RMS energy — lowered from 300 to catch normal speaking volume
-        private const val MIN_WAKE_RMS = 150.0
     }
 
     interface WakeWordCallback {
@@ -69,16 +80,16 @@ class WakeWordEngine(
         if (isListening) return
 
         try {
-            // English recognizer — phonetic matching
+            // English recognizer — FREE-FORM (no grammar constraint)
             val enModel = VoskModelHolder.getEnglishModel(englishModelPath)
-            engRecognizer = Recognizer(enModel, SAMPLE_RATE.toFloat(), EN_GRAMMAR)
+            engRecognizer = Recognizer(enModel, SAMPLE_RATE.toFloat())
 
-            // Hindi recognizer — direct Devanagari matching (much better for "सेडू")
+            // Hindi recognizer — FREE-FORM (no grammar constraint)
             if (hindiModelPath != null) {
                 try {
                     val hiModel = VoskModelHolder.getHindiModel(hindiModelPath)
-                    hinRecognizer = Recognizer(hiModel, SAMPLE_RATE.toFloat(), HI_GRAMMAR)
-                    Log.d(TAG, "Hindi wake word recognizer loaded")
+                    hinRecognizer = Recognizer(hiModel, SAMPLE_RATE.toFloat())
+                    Log.d(TAG, "Hindi free-form recognizer loaded")
                 } catch (e: Exception) {
                     Log.w(TAG, "Hindi model not available, English-only mode", e)
                     hinRecognizer = null
@@ -112,7 +123,7 @@ class WakeWordEngine(
 
             listenThread = Thread {
                 android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO)
-                Log.d(TAG, "Wake word listening started (dual-model: EN + HI)")
+                Log.d(TAG, "Wake word listening started (dual free-form: EN + HI)")
                 val buffer = ShortArray(2048)
                 try {
                     while (isListening) {
@@ -129,44 +140,47 @@ class WakeWordEngine(
                                 val bytes = shortsToBytes(buffer, read)
                                 val rms = computeRMS(buffer, read)
 
-                                // Feed to BOTH recognizers and check each
-                                var detected = false
-                                var detectedText = ""
-
-                                // Check English recognizer
-                                if (engRecognizer?.acceptWaveForm(bytes, bytes.size) == true) {
-                                    val text = extractText(engRecognizer?.result ?: "")
-                                    if (isEnWakeWord(text)) {
-                                        if (rms >= MIN_WAKE_RMS) {
-                                            detected = true
-                                            detectedText = "EN:'$text'"
-                                        } else {
-                                            Log.d(TAG, "EN candidate '$text' rejected: RMS=$rms too low")
+                                // === ENGLISH MODEL ===
+                                val enFinal = engRecognizer?.acceptWaveForm(bytes, bytes.size) == true
+                                if (enFinal) {
+                                    val text = extractFinalText(engRecognizer?.result ?: "")
+                                    if (text.isNotEmpty()) {
+                                        Log.d(TAG, "EN final: '$text'")
+                                        if (matchesEnPattern(text) && rms >= MIN_WAKE_RMS) {
+                                            triggerWakeWord("EN-final:'$text'", rms)
+                                            return@Thread
                                         }
+                                    }
+                                } else {
+                                    // Check partial results too — faster detection
+                                    val partial = extractPartialText(engRecognizer?.partialResult ?: "")
+                                    if (partial.length >= 4 && matchesEnPattern(partial) && rms >= MIN_WAKE_RMS) {
+                                        Log.d(TAG, "EN partial match: '$partial'")
+                                        triggerWakeWord("EN-partial:'$partial'", rms)
+                                        return@Thread
                                     }
                                 }
 
-                                // Check Hindi recognizer
-                                if (!detected && hinRecognizer != null) {
-                                    if (hinRecognizer?.acceptWaveForm(bytes, bytes.size) == true) {
-                                        val text = extractText(hinRecognizer?.result ?: "")
-                                        if (isHiWakeWord(text)) {
-                                            if (rms >= MIN_WAKE_RMS) {
-                                                detected = true
-                                                detectedText = "HI:'$text'"
-                                            } else {
-                                                Log.d(TAG, "HI candidate '$text' rejected: RMS=$rms too low")
+                                // === HINDI MODEL ===
+                                if (hinRecognizer != null) {
+                                    val hiFinal = hinRecognizer?.acceptWaveForm(bytes, bytes.size) == true
+                                    if (hiFinal) {
+                                        val text = extractFinalText(hinRecognizer?.result ?: "")
+                                        if (text.isNotEmpty()) {
+                                            Log.d(TAG, "HI final: '$text'")
+                                            if (matchesHiPattern(text) && rms >= MIN_WAKE_RMS) {
+                                                triggerWakeWord("HI-final:'$text'", rms)
+                                                return@Thread
                                             }
                                         }
+                                    } else {
+                                        val partial = extractPartialText(hinRecognizer?.partialResult ?: "")
+                                        if (partial.length >= 2 && matchesHiPattern(partial) && rms >= MIN_WAKE_RMS) {
+                                            Log.d(TAG, "HI partial match: '$partial'")
+                                            triggerWakeWord("HI-partial:'$partial'", rms)
+                                            return@Thread
+                                        }
                                     }
-                                }
-
-                                if (detected) {
-                                    Log.d(TAG, "*** WAKE WORD DETECTED: $detectedText (RMS=$rms) ***")
-                                    isListening = false
-                                    val capturedAudio = getCapturedAudio()
-                                    callback.onWakeWordDetected(capturedAudio)
-                                    return@Thread
                                 }
                             }
                         } catch (e: Exception) {
@@ -193,6 +207,13 @@ class WakeWordEngine(
         }
     }
 
+    private fun triggerWakeWord(source: String, rms: Double) {
+        Log.d(TAG, "*** WAKE WORD DETECTED: $source (RMS=$rms) ***")
+        isListening = false
+        val capturedAudio = getCapturedAudio()
+        callback.onWakeWordDetected(capturedAudio)
+    }
+
     fun stop() {
         isListening = false
         try {
@@ -214,32 +235,28 @@ class WakeWordEngine(
     /** Check if wake word engine is still actively listening */
     fun isAlive(): Boolean = isListening && listenThread?.isAlive == true
 
-    private fun extractText(json: String): String {
+    private fun extractFinalText(json: String): String {
         return try {
-            val obj = JSONObject(json)
-            (obj.optString("text", "") + " " + obj.optString("partial", "")).trim()
-        } catch (e: Exception) {
-            ""
-        }
+            JSONObject(json).optString("text", "").trim()
+        } catch (_: Exception) { "" }
     }
 
-    private fun isEnWakeWord(text: String): Boolean {
-        if (text.isEmpty()) return false
-        val cleaned = text.lowercase().trim()
-            .replace("[unk]", "").trim()
-        if (cleaned.isEmpty()) return false
-        // Must be exactly two words (two syllables = "se" + "du")
-        val words = cleaned.split(" ").filter { it.isNotBlank() }
-        if (words.size != 2) return false
-        return EN_WAKE_WORDS.contains(cleaned)
+    private fun extractPartialText(json: String): String {
+        return try {
+            JSONObject(json).optString("partial", "").trim()
+        } catch (_: Exception) { "" }
     }
 
-    private fun isHiWakeWord(text: String): Boolean {
+    /** Check if English free-form output matches any "Sedu"-like pattern */
+    private fun matchesEnPattern(text: String): Boolean {
         if (text.isEmpty()) return false
-        val cleaned = text.trim()
-            .replace("[unk]", "").trim()
-        if (cleaned.isEmpty()) return false
-        return HI_WAKE_WORDS.contains(cleaned)
+        return EN_PATTERNS.any { it.containsMatchIn(text) }
+    }
+
+    /** Check if Hindi free-form output matches any "सेडू"-like pattern */
+    private fun matchesHiPattern(text: String): Boolean {
+        if (text.isEmpty()) return false
+        return HI_PATTERNS.any { it.containsMatchIn(text) }
     }
 
     /** Compute RMS energy of audio buffer — higher = louder speech */
