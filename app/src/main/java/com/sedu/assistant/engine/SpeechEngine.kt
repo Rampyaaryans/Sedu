@@ -37,7 +37,7 @@ class SpeechEngine(
 
     companion object {
         private const val TAG = "SpeechEngine"
-        private const val MAX_RETRIES = 2  // Limited restarts to prevent ON/OFF cycling
+        private const val MAX_RETRIES = 3  // More retries for mic contention recovery
         private const val SPEECH_TIMEOUT_MS = 35_000L  // Extended timeout when user is speaking
     }
 
@@ -206,7 +206,13 @@ class SpeechEngine(
             destroyRecognizer()
             if (retryCount < MAX_RETRIES) {
                 retryCount++
-                val delay = if (error == SpeechRecognizer.ERROR_CLIENT) 200L else 150L
+                // Longer delay for audio errors (mic still held by another component)
+                val delay = when (error) {
+                    SpeechRecognizer.ERROR_AUDIO -> 500L
+                    SpeechRecognizer.ERROR_CLIENT -> 300L
+                    SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> 600L
+                    else -> 200L
+                }
                 mainHandler.postDelayed({
                     if (!isStopped) startListening(currentTimeoutMs)
                 }, delay)

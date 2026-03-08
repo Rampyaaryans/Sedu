@@ -51,7 +51,7 @@ class SeduService : Service() {
     private var hasPromptedOnSilence = false
     private var speechErrorCount = 0
     private var wakeWordWatchdog: Runnable? = null
-    private val WATCHDOG_INTERVAL_MS = 30_000L
+    private val WATCHDOG_INTERVAL_MS = 15_000L
 
     private val inactivityChecker = object : Runnable {
         override fun run() {
@@ -209,22 +209,34 @@ class SeduService : Service() {
         }
 
         speechEngine?.stop()
+        speechEngine = null
         wakeWordEngine?.stop()
+        wakeWordEngine = null
 
-        wakeWordEngine = WakeWordEngine(enPath, hiPath, object : WakeWordEngine.WakeWordCallback {
-            override fun onWakeWordDetected(audioData: ShortArray) {
-                Log.d(TAG, "*** WAKE WORD DETECTED ***")
-                onWakeWord(audioData)
-            }
+        // Small delay to ensure all audio resources are fully released
+        Handler(Looper.getMainLooper()).postDelayed({
+            if (inConversation) return@postDelayed  // Don't start if conversation already began
 
-            override fun onError(error: String) {
-                Log.e(TAG, "Wake word error: $error")
-                // Restart listening after error
-                Thread.sleep(1000)
-                startWakeWordListening()
-            }
-        })
-        wakeWordEngine?.start()
+            wakeWordEngine = WakeWordEngine(enPath, hiPath, object : WakeWordEngine.WakeWordCallback {
+                override fun onWakeWordDetected(audioData: ShortArray) {
+                    Log.d(TAG, "*** WAKE WORD DETECTED ***")
+                    // MUST run on main thread — TTS and SpeechRecognizer require it
+                    Handler(Looper.getMainLooper()).post {
+                        onWakeWord(audioData)
+                    }
+                }
+
+                override fun onError(error: String) {
+                    Log.e(TAG, "Wake word error: $error")
+                    // Restart listening after error — on main thread
+                    Handler(Looper.getMainLooper()).postDelayed({
+                        startWakeWordListening()
+                    }, 2000)
+                }
+            })
+            wakeWordEngine?.start()
+            Log.d(TAG, "Wake word engine started (dual free-form)")
+        }, 500)
     }
 
     private fun onWakeWord(audioData: ShortArray) {
@@ -233,13 +245,20 @@ class SeduService : Service() {
             val isOwner = voiceProfile!!.isOwner(audioData)
             if (!isOwner) {
                 Log.d(TAG, "Voice verification FAILED — not owner, ignoring")
-                startWakeWordListening()
+                // Restart wake word with delay to let mic release
+                Handler(Looper.getMainLooper()).postDelayed({
+                    startWakeWordListening()
+                }, 1000)
                 return
             }
             Log.d(TAG, "Voice verification PASSED — owner confirmed")
         } else {
             Log.w(TAG, "Voice not enrolled — accepting all voices until training")
         }
+
+        // FIRST: Stop wake word engine completely and release mic
+        wakeWordEngine?.stop()
+        wakeWordEngine = null
 
         // Wake screen if it's off
         wakeScreen()
@@ -273,10 +292,16 @@ class SeduService : Service() {
         currentState = SeduServiceState.LISTENING_COMMAND
         updateNotification("Sun raha hoon...")
 
-        // Speak greeting THEN start listening
-        seduTTS?.speak("Boliye, kya kaam hai?") {
-            if (inConversation) startCommandListening()
-        }
+        // Wait 400ms for mic to fully release from WakeWordEngine, then speak greeting
+        Handler(Looper.getMainLooper()).postDelayed({
+            if (!inConversation) { endConversation(); return@postDelayed }
+            seduTTS?.speak("Boliye, kya kaam hai?") {
+                // TTS done callback — marshal to main thread
+                Handler(Looper.getMainLooper()).post {
+                    if (inConversation) startCommandListening()
+                }
+            }
+        }, 400)
     }
 
     /**
@@ -292,6 +317,7 @@ class SeduService : Service() {
         geminiThread?.interrupt()
         geminiThread = null
         wakeWordEngine?.stop()
+        wakeWordEngine = null
 
         hasPromptedOnSilence = false
         speechErrorCount = 0
@@ -305,14 +331,15 @@ class SeduService : Service() {
         currentState = SeduServiceState.LISTENING_COMMAND
         updateNotification("Sun raha hoon...")
 
-        // Speak greeting then start fresh recognizer
-        seduTTS?.speak("Haan boliye?") {
-            if (inConversation) {
+        // Wait for mic release, then speak greeting and start recognizer
+        Handler(Looper.getMainLooper()).postDelayed({
+            if (!inConversation) return@postDelayed
+            seduTTS?.speak("Haan boliye?") {
                 Handler(Looper.getMainLooper()).postDelayed({
                     if (inConversation) startGoogleSpeechRecognizer()
-                }, 100)
+                }, 300)
             }
-        }
+        }, 400)
     }
 
     private fun startCommandListening() {
@@ -327,14 +354,18 @@ class SeduService : Service() {
 
         // Stop wake word engine (it holds the mic)
         wakeWordEngine?.stop()
+        wakeWordEngine = null
 
         // Always create fresh SpeechEngine to avoid stale state
         speechEngine?.stop()
         speechEngine = null
 
+        // 300ms delay for mic release, then start Google recognizer on main thread
         Handler(Looper.getMainLooper()).postDelayed({
-            if (inConversation) startGoogleSpeechRecognizer()
-        }, 150)
+            if (inConversation) {
+                startGoogleSpeechRecognizer()
+            }
+        }, 300)
     }
 
     private val WAKE_WORDS_IN_SPEECH = listOf("sedu", "said you", "say do", "see do", "se do", "said do", "so do")
@@ -578,11 +609,12 @@ class SeduService : Service() {
         speechEngine = null
         try { overlay?.hide() } catch (e: Exception) { Log.e(TAG, "Overlay hide error", e) }
 
-        // Delay to ensure SpeechRecognizer fully releases mic before WakeWordEngine starts
+        // Longer delay — SpeechRecognizer needs time to fully release mic
+        // before WakeWordEngine can grab it for dual-model free-form recognition
         Handler(Looper.getMainLooper()).postDelayed({
             startWakeWordListening()
             startWakeWordWatchdog()
-        }, 500)
+        }, 1500)
     }
 
     /** Watchdog — checks every 60s that wake word engine is alive, restarts if dead */
