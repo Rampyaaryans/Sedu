@@ -16,7 +16,8 @@ class WakeWordEngine(
     private val callback: WakeWordCallback
 ) {
     private var audioRecord: AudioRecord? = null
-    private var recognizer: Recognizer? = null
+    private var engRecognizer: Recognizer? = null
+    private var hinRecognizer: Recognizer? = null
     @Volatile
     private var isListening = false
     private var listenThread: Thread? = null
@@ -31,19 +32,32 @@ class WakeWordEngine(
         private const val SAMPLE_RATE = 16000
         private const val BUFFER_SIZE = 32000 // 2 seconds at 16kHz
 
-        // Tight Vosk grammar — only TWO-WORD "Sedu" transcriptions + [unk] catch-all
-        // Every entry MUST be two words (two syllables) to reject single-syllable "S" sounds
-        // [unk] absorbs ALL non-wake-word speech
-        private const val GRAMMAR = "[\"say do\", \"said you\", \"see do\", \"said do\", \"se do\", \"so do\", \"say due\", \"so due\", \"say two\", \"so two\", \"set do\", \"[unk]\"]"
+        // English phonetic grammar — maps "सेडू" sound to English word pairs
+        private const val EN_GRAMMAR = "[\"say do\", \"said you\", \"see do\", \"said do\", \"se do\", \"so do\", \"say due\", \"so due\", \"say two\", \"so two\", \"set do\", \"said dew\", \"said due\", \"said two\", \"say you\", \"see due\", \"see two\", \"say dew\", \"see dew\", \"set due\", \"set two\", \"sat do\", \"sat due\", \"[unk]\"]"
 
-        // Exact wake word phrases — two-word only, Set for O(1) lookup
-        private val WAKE_WORDS = setOf(
+        // Hindi Devanagari grammar — direct recognition of सेडू
+        private const val HI_GRAMMAR = "[\"सेडू\", \"सेडु\", \"से डू\", \"से डु\", \"सैडू\", \"सैडु\", \"सेदू\", \"सेदु\", \"सीडू\", \"सीडु\", \"[unk]\"]"
+
+        // English wake word set for O(1) lookup
+        private val EN_WAKE_WORDS = setOf(
             "say do", "see do", "said do", "said you",
             "se do", "so do", "say due", "so due",
-            "say two", "so two", "set do"
+            "say two", "so two", "set do",
+            "said dew", "said due", "said two",
+            "say you", "see due", "see two",
+            "say dew", "see dew", "set due", "set two",
+            "sat do", "sat due"
         )
-        // Minimum RMS energy to accept — rejects quiet/ambient false triggers
-        private const val MIN_WAKE_RMS = 300.0
+
+        // Hindi wake word set
+        private val HI_WAKE_WORDS = setOf(
+            "सेडू", "सेडु", "से डू", "से डु",
+            "सैडू", "सैडु", "सेदू", "सेदु",
+            "सीडू", "सीडु"
+        )
+
+        // Minimum RMS energy — lowered from 300 to catch normal speaking volume
+        private const val MIN_WAKE_RMS = 150.0
     }
 
     interface WakeWordCallback {
@@ -55,25 +69,34 @@ class WakeWordEngine(
         if (isListening) return
 
         try {
-            // Use pre-loaded model from holder — no reload delay
-            val model = VoskModelHolder.getEnglishModel(englishModelPath)
+            // English recognizer — phonetic matching
+            val enModel = VoskModelHolder.getEnglishModel(englishModelPath)
+            engRecognizer = Recognizer(enModel, SAMPLE_RATE.toFloat(), EN_GRAMMAR)
 
-            // Grammar-constrained recognition — outputs only wake word variants or [unk]
-            // This eliminates false triggers from random speech or background noise
-            recognizer = Recognizer(model, SAMPLE_RATE.toFloat(), GRAMMAR)
+            // Hindi recognizer — direct Devanagari matching (much better for "सेडू")
+            if (hindiModelPath != null) {
+                try {
+                    val hiModel = VoskModelHolder.getHindiModel(hindiModelPath)
+                    hinRecognizer = Recognizer(hiModel, SAMPLE_RATE.toFloat(), HI_GRAMMAR)
+                    Log.d(TAG, "Hindi wake word recognizer loaded")
+                } catch (e: Exception) {
+                    Log.w(TAG, "Hindi model not available, English-only mode", e)
+                    hinRecognizer = null
+                }
+            }
 
             val bufferSize = AudioRecord.getMinBufferSize(
                 SAMPLE_RATE,
                 AudioFormat.CHANNEL_IN_MONO,
                 AudioFormat.ENCODING_PCM_16BIT
-            ).coerceAtLeast(8192)  // Larger buffer for far-field pickup
+            ).coerceAtLeast(8192)
 
             audioRecord = AudioRecord(
-                MediaRecorder.AudioSource.VOICE_RECOGNITION,  // VOICE_RECOGNITION = hardware AGC + far-field
+                MediaRecorder.AudioSource.VOICE_RECOGNITION,
                 SAMPLE_RATE,
                 AudioFormat.CHANNEL_IN_MONO,
                 AudioFormat.ENCODING_PCM_16BIT,
-                bufferSize * 4  // Large buffer for continuous far-field pickup
+                bufferSize * 4
             )
 
             if (audioRecord?.state != AudioRecord.STATE_INITIALIZED) {
@@ -84,59 +107,79 @@ class WakeWordEngine(
             isListening = true
             audioRecord?.startRecording()
 
-            // Reset circular buffer
             bufferWritePos = 0
             bufferFilled = false
 
             listenThread = Thread {
                 android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO)
-                Log.d(TAG, "Wake word listening started (grammar mode)")
+                Log.d(TAG, "Wake word listening started (dual-model: EN + HI)")
                 val buffer = ShortArray(2048)
                 try {
-                while (isListening) {
-                    try {
-                        val read = audioRecord?.read(buffer, 0, buffer.size) ?: 0
-                        if (read > 0 && isListening) {
-                            // Store in circular buffer for speaker verification
-                            for (i in 0 until read) {
-                                audioBuffer[bufferWritePos] = buffer[i]
-                                bufferWritePos = (bufferWritePos + 1) % BUFFER_SIZE
-                                if (bufferWritePos == 0) bufferFilled = true
-                            }
+                    while (isListening) {
+                        try {
+                            val read = audioRecord?.read(buffer, 0, buffer.size) ?: 0
+                            if (read > 0 && isListening) {
+                                // Store in circular buffer for speaker verification
+                                for (i in 0 until read) {
+                                    audioBuffer[bufferWritePos] = buffer[i]
+                                    bufferWritePos = (bufferWritePos + 1) % BUFFER_SIZE
+                                    if (bufferWritePos == 0) bufferFilled = true
+                                }
 
-                            val bytes = shortsToBytes(buffer, read)
+                                val bytes = shortsToBytes(buffer, read)
+                                val rms = computeRMS(buffer, read)
 
-                            if (recognizer?.acceptWaveForm(bytes, bytes.size) == true) {
-                                val result = recognizer?.result ?: ""
-                                val text = extractText(result)
-                                if (isWakeWord(text)) {
-                                    // Validate audio energy — reject quiet/ambient false triggers
-                                    val rms = computeRMS(buffer, read)
-                                    if (rms < MIN_WAKE_RMS) {
-                                        Log.d(TAG, "Wake word candidate '$text' rejected: RMS=$rms too low")
-                                    } else {
-                                        Log.d(TAG, "*** WAKE WORD DETECTED: '$text' (RMS=$rms) ***")
-                                        isListening = false
-                                        val capturedAudio = getCapturedAudio()
-                                        callback.onWakeWordDetected(capturedAudio)
-                                        return@Thread
+                                // Feed to BOTH recognizers and check each
+                                var detected = false
+                                var detectedText = ""
+
+                                // Check English recognizer
+                                if (engRecognizer?.acceptWaveForm(bytes, bytes.size) == true) {
+                                    val text = extractText(engRecognizer?.result ?: "")
+                                    if (isEnWakeWord(text)) {
+                                        if (rms >= MIN_WAKE_RMS) {
+                                            detected = true
+                                            detectedText = "EN:'$text'"
+                                        } else {
+                                            Log.d(TAG, "EN candidate '$text' rejected: RMS=$rms too low")
+                                        }
                                     }
                                 }
+
+                                // Check Hindi recognizer
+                                if (!detected && hinRecognizer != null) {
+                                    if (hinRecognizer?.acceptWaveForm(bytes, bytes.size) == true) {
+                                        val text = extractText(hinRecognizer?.result ?: "")
+                                        if (isHiWakeWord(text)) {
+                                            if (rms >= MIN_WAKE_RMS) {
+                                                detected = true
+                                                detectedText = "HI:'$text'"
+                                            } else {
+                                                Log.d(TAG, "HI candidate '$text' rejected: RMS=$rms too low")
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if (detected) {
+                                    Log.d(TAG, "*** WAKE WORD DETECTED: $detectedText (RMS=$rms) ***")
+                                    isListening = false
+                                    val capturedAudio = getCapturedAudio()
+                                    callback.onWakeWordDetected(capturedAudio)
+                                    return@Thread
+                                }
                             }
-                            // NO partial result checking — partials are too unreliable
-                            // and cause false triggers on any word starting with "S"
-                        }
-                    } catch (e: Exception) {
-                        if (isListening) {
-                            Log.e(TAG, "Error in listen loop", e)
+                        } catch (e: Exception) {
+                            if (isListening) {
+                                Log.e(TAG, "Error in listen loop", e)
+                            }
                         }
                     }
-                }
                 } finally {
-                    // ALWAYS release audio resources even if thread crashes
                     try { audioRecord?.stop() } catch (_: Exception) {}
                     try { audioRecord?.release() } catch (_: Exception) {}
-                    try { recognizer?.close() } catch (_: Exception) {}
+                    try { engRecognizer?.close() } catch (_: Exception) {}
+                    try { hinRecognizer?.close() } catch (_: Exception) {}
                     Log.d(TAG, "Wake word thread exiting, resources released")
                 }
             }
@@ -160,12 +203,10 @@ class WakeWordEngine(
         }
         audioRecord = null
 
-        try {
-            recognizer?.close()
-        } catch (e: Exception) {
-            Log.e(TAG, "Error closing recognizer", e)
-        }
-        recognizer = null
+        try { engRecognizer?.close() } catch (_: Exception) {}
+        try { hinRecognizer?.close() } catch (_: Exception) {}
+        engRecognizer = null
+        hinRecognizer = null
 
         listenThread = null
     }
@@ -182,16 +223,23 @@ class WakeWordEngine(
         }
     }
 
-    private fun isWakeWord(text: String): Boolean {
+    private fun isEnWakeWord(text: String): Boolean {
         if (text.isEmpty()) return false
         val cleaned = text.lowercase().trim()
             .replace("[unk]", "").trim()
         if (cleaned.isEmpty()) return false
         // Must be exactly two words (two syllables = "se" + "du")
-        // Rejects single-word false positives like "so", "say", "see" etc.
         val words = cleaned.split(" ").filter { it.isNotBlank() }
         if (words.size != 2) return false
-        return WAKE_WORDS.contains(cleaned)
+        return EN_WAKE_WORDS.contains(cleaned)
+    }
+
+    private fun isHiWakeWord(text: String): Boolean {
+        if (text.isEmpty()) return false
+        val cleaned = text.trim()
+            .replace("[unk]", "").trim()
+        if (cleaned.isEmpty()) return false
+        return HI_WAKE_WORDS.contains(cleaned)
     }
 
     /** Compute RMS energy of audio buffer — higher = louder speech */

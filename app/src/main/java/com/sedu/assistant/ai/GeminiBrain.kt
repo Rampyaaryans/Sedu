@@ -60,7 +60,7 @@ SMART DECISION RULES:
 - Jokes, stories, advice, facts, science, math, history, general knowledge → ALL use "chat"
 - "kya haal hai", "kaisa hai", "how are you" → use "greeting"
 
-JSON: {"action": "ACTION_TYPE", "params": {}, "reply": "Hinglish response"}
+JSON: {"action": "ACTION_TYPE", "params": {}, "reply": "shuddh Hindi jawab"}
 
 TOOLS:
 - "call" → {"contact": "EXACT contact name"} — phone call
