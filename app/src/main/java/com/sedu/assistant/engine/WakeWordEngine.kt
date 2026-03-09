@@ -192,8 +192,11 @@ class WakeWordEngine(
                 } finally {
                     try { audioRecord?.stop() } catch (_: Exception) {}
                     try { audioRecord?.release() } catch (_: Exception) {}
+                    audioRecord = null
                     try { engRecognizer?.close() } catch (_: Exception) {}
                     try { hinRecognizer?.close() } catch (_: Exception) {}
+                    engRecognizer = null
+                    hinRecognizer = null
                     Log.d(TAG, "Wake word thread exiting, resources released")
                 }
             }
@@ -216,19 +219,13 @@ class WakeWordEngine(
 
     fun stop() {
         isListening = false
+        // Do NOT call audioRecord.stop()/release() here — the listen thread's
+        // finally block handles cleanup. Calling from both threads causes
+        // IllegalStateException and double-release crashes.
+        // Just wait briefly for the thread to exit naturally.
         try {
-            audioRecord?.stop()
-            audioRecord?.release()
-        } catch (e: Exception) {
-            Log.e(TAG, "Error stopping audio record", e)
-        }
-        audioRecord = null
-
-        try { engRecognizer?.close() } catch (_: Exception) {}
-        try { hinRecognizer?.close() } catch (_: Exception) {}
-        engRecognizer = null
-        hinRecognizer = null
-
+            listenThread?.join(500)
+        } catch (_: InterruptedException) {}
         listenThread = null
     }
 

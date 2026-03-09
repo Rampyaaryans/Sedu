@@ -21,13 +21,14 @@ android {
         applicationId = "com.sedu.assistant"
         minSdk = 21
         targetSdk = 34
-        versionCode = 9
-        versionName = "1.4.4"
+        versionCode = 10
+        versionName = "1.5.0"
 
         // Inject API keys as BuildConfig fields
         buildConfigField("String", "GROQ_API_KEY", "\"${loadApiKey("GROQ_API_KEY")}\"")
         buildConfigField("String", "GEMINI_API_KEY", "\"${loadApiKey("GEMINI_API_KEY")}\"")
-
+        buildConfigField("String", "MISTRAL_API_KEY", "\"${loadApiKey("MISTRAL_API_KEY")}\"")
+        buildConfigField("String", "OPENAI_API_KEY", "\"${loadApiKey("OPENAI_API_KEY")}\"")
 
         ndk {
             // ARM only — covers 99%+ of real Android phones, halves APK size

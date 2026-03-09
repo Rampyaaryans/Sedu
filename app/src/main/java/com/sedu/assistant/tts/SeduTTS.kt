@@ -52,6 +52,9 @@ class SeduTTS(context: Context) {
     private var hindiVoice: Voice? = null
     private var englishVoice: Voice? = null
 
+    // Callback map — set listener ONCE, dispatch by utteranceId
+    private val completionCallbacks = java.util.concurrent.ConcurrentHashMap<String, () -> Unit>()
+
     init {
         tts = TextToSpeech(context) { status ->
             if (status == TextToSpeech.SUCCESS) {
@@ -62,6 +65,18 @@ class SeduTTS(context: Context) {
                 tts?.language = Locale("hi", "IN")
                 tts?.setPitch(0.95f)
                 tts?.setSpeechRate(0.85f)
+
+                // Set listener ONCE — never overwrite
+                tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                    override fun onStart(utteranceId: String?) {}
+                    override fun onDone(utteranceId: String?) {
+                        utteranceId?.let { completionCallbacks.remove(it)?.invoke() }
+                    }
+                    @Deprecated("Deprecated")
+                    override fun onError(utteranceId: String?) {
+                        utteranceId?.let { completionCallbacks.remove(it)?.invoke() }
+                    }
+                })
 
                 isReady = true
                 Log.d(TAG, "TTS ready, hindi=${hindiVoice?.name}, english=${englishVoice?.name}")
@@ -153,16 +168,7 @@ class SeduTTS(context: Context) {
         val utteranceId = UUID.randomUUID().toString()
 
         if (onComplete != null) {
-            tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-                override fun onStart(id: String?) {}
-                override fun onDone(id: String?) {
-                    if (id == utteranceId) onComplete()
-                }
-                @Deprecated("Deprecated")
-                override fun onError(id: String?) {
-                    if (id == utteranceId) onComplete()
-                }
-            })
+            completionCallbacks[utteranceId] = onComplete
         }
 
         // Always use Hindi voice for pure Hindi output
@@ -194,6 +200,7 @@ class SeduTTS(context: Context) {
 
     fun stop() {
         tts?.stop()
+        completionCallbacks.clear()
     }
 
     fun shutdown() {
@@ -201,5 +208,6 @@ class SeduTTS(context: Context) {
         tts?.shutdown()
         tts = null
         isReady = false
+        completionCallbacks.clear()
     }
 }

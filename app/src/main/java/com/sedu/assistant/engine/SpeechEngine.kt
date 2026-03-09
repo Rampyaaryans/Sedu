@@ -281,8 +281,7 @@ class SpeechEngine(
         lastPartialResult = ""
         cancelTimeout()
         unmuteStreams()
-        // Remove ALL pending handler callbacks to prevent stale callbacks firing
-        mainHandler.removeCallbacksAndMessages(null)
+        // Only remove OUR callbacks — not all handler messages (which would kill TTS callbacks etc.)
         mainHandler.post { destroyRecognizer() }
     }
 

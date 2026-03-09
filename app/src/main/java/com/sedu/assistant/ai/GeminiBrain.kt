@@ -12,8 +12,9 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * Dual AI brain: Groq (primary, fast) → Gemini (fallback).
- * Both use the same system prompt and return the same JSON format.
+ * Quad AI brain: Groq → Mistral → OpenAI → Gemini.
+ * All use the same system prompt and return the same JSON format.
+ * If one fails, the next one picks up — the app must go on.
  */
 class GeminiBrain {
 
@@ -23,12 +24,17 @@ class GeminiBrain {
         // Groq — primary (Llama 3.3 70B, blazing fast)
         private const val GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
         private const val GROQ_MODEL = "llama-3.3-70b-versatile"
-        // Keys loaded from SharedPreferences at runtime — NOT hardcoded
-        private const val DEFAULT_GROQ_KEY = ""
 
-        // Gemini — fallback
+        // Mistral — second fallback
+        private const val MISTRAL_URL = "https://api.mistral.ai/v1/chat/completions"
+        private const val MISTRAL_MODEL = "mistral-large-latest"
+
+        // OpenAI — third fallback
+        private const val OPENAI_URL = "https://api.openai.com/v1/chat/completions"
+        private const val OPENAI_MODEL = "gpt-4o-mini"
+
+        // Gemini — final fallback
         private const val GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
-        private const val DEFAULT_GEMINI_KEY = ""
 
         private const val SYSTEM_PROMPT = """You are SEDU — a BRILLIANT personal AI assistant, like Jarvis from Iron Man. You control an Android phone. You are the user's best friend, smartest helper, and always ready to chat, joke, help, or take action.
 
@@ -99,8 +105,10 @@ EXAMPLES:
 - "mujhe joke sunao" → {"action":"chat","params":{"topic":"joke"},"reply":"Doctor ne kaha hasna band karo. Patient bola kyun? Doctor bola meri hands kaanp rahi hain!"}"""
     }
 
-    private var geminiKey: String? = BuildConfig.GEMINI_API_KEY.ifBlank { DEFAULT_GEMINI_KEY.ifBlank { null } }
-    private var groqKey: String? = BuildConfig.GROQ_API_KEY.ifBlank { DEFAULT_GROQ_KEY.ifBlank { null } }
+    private var geminiKey: String? = BuildConfig.GEMINI_API_KEY.ifBlank { null }
+    private var groqKey: String? = BuildConfig.GROQ_API_KEY.ifBlank { null }
+    private var mistralKey: String? = BuildConfig.MISTRAL_API_KEY.ifBlank { null }
+    private var openaiKey: String? = BuildConfig.OPENAI_API_KEY.ifBlank { null }
     @Volatile private var activeConnection: HttpURLConnection? = null
 
     fun setApiKey(key: String) {
@@ -111,7 +119,7 @@ EXAMPLES:
         if (key.isNotBlank()) groqKey = key
     }
 
-    fun hasApiKey(): Boolean = !groqKey.isNullOrBlank() || !geminiKey.isNullOrBlank()
+    fun hasApiKey(): Boolean = !groqKey.isNullOrBlank() || !mistralKey.isNullOrBlank() || !openaiKey.isNullOrBlank() || !geminiKey.isNullOrBlank()
 
     /** Cancel any active HTTP request (called from interruptAll) */
     fun cancelActiveRequest() {
@@ -134,45 +142,61 @@ EXAMPLES:
     }
 
     /**
-     * Try Groq first (fast, reliable), fall back to Gemini.
+     * Try all 4 backends in order: Groq → Mistral → OpenAI → Gemini.
+     * The app must go on — if one fails, the next picks up.
      */
     fun understand(sttText: String): AIResponse? {
         if (sttText.isBlank()) return null
+        val prompt = buildFullPrompt(sttText)
 
-        // 1. Try Groq (primary)
+        // 1. Try Groq (primary — fastest)
         if (!groqKey.isNullOrBlank()) {
-            val result = callGroq(buildFullPrompt(sttText))
+            val result = callOpenAICompatible(GROQ_URL, groqKey!!, GROQ_MODEL, prompt, "Groq")
             if (result != null) return result
-            Log.w(TAG, "Groq failed, trying Gemini fallback...")
+            Log.w(TAG, "Groq failed, trying Mistral...")
         }
 
-        // 2. Fall back to Gemini
-        if (!geminiKey.isNullOrBlank()) {
-            val result = callGemini(buildFullPrompt(sttText))
+        // 2. Try Mistral (second)
+        if (!mistralKey.isNullOrBlank()) {
+            val result = callOpenAICompatible(MISTRAL_URL, mistralKey!!, MISTRAL_MODEL, prompt, "Mistral")
             if (result != null) return result
-            Log.e(TAG, "Gemini also failed")
+            Log.w(TAG, "Mistral failed, trying OpenAI...")
+        }
+
+        // 3. Try OpenAI (third)
+        if (!openaiKey.isNullOrBlank()) {
+            val result = callOpenAICompatible(OPENAI_URL, openaiKey!!, OPENAI_MODEL, prompt, "OpenAI")
+            if (result != null) return result
+            Log.w(TAG, "OpenAI failed, trying Gemini...")
+        }
+
+        // 4. Fall back to Gemini (Google — different API format)
+        if (!geminiKey.isNullOrBlank()) {
+            val result = callGemini(prompt)
+            if (result != null) return result
+            Log.e(TAG, "All 4 backends failed!")
         }
 
         return null
     }
 
-    // ==================== GROQ (OpenAI-compatible) ====================
+    // ==================== UNIFIED OpenAI-Compatible API (Groq/Mistral/OpenAI) ====================
 
-    private fun callGroq(prompt: String): AIResponse? {
+    private fun callOpenAICompatible(apiUrl: String, apiKey: String, model: String, prompt: String, label: String): AIResponse? {
         if (Thread.interrupted()) return null
         var connection: HttpURLConnection? = null
         try {
-            connection = URL(GROQ_URL).openConnection() as HttpURLConnection
+            connection = URL(apiUrl).openConnection() as HttpURLConnection
             activeConnection = connection
             connection.requestMethod = "POST"
             connection.setRequestProperty("Content-Type", "application/json")
-            connection.setRequestProperty("Authorization", "Bearer $groqKey")
+            connection.setRequestProperty("Authorization", "Bearer $apiKey")
             connection.connectTimeout = 5000
             connection.readTimeout = 8000
             connection.doOutput = true
 
             val requestBody = JSONObject().apply {
-                put("model", GROQ_MODEL)
+                put("model", model)
                 put("messages", JSONArray().apply {
                     put(JSONObject().apply {
                         put("role", "user")
@@ -196,7 +220,7 @@ EXAMPLES:
                 val error = if (errorStream != null) {
                     BufferedReader(InputStreamReader(errorStream)).readText()
                 } else "unknown"
-                Log.e(TAG, "Groq API error $responseCode: $error")
+                Log.e(TAG, "$label API error $responseCode: $error")
                 return null
             }
 
@@ -204,11 +228,11 @@ EXAMPLES:
             val response = reader.readText()
             reader.close()
 
-            return parseGroqResponse(response)
+            return parseOpenAIResponse(response, label)
 
         } catch (e: Exception) {
             if (Thread.interrupted()) return null
-            Log.e(TAG, "Groq call failed: ${e.message}")
+            Log.e(TAG, "$label call failed: ${e.message}")
             return null
         } finally {
             try { connection?.disconnect() } catch (_: Exception) {}
@@ -216,7 +240,7 @@ EXAMPLES:
         }
     }
 
-    private fun parseGroqResponse(response: String): AIResponse? {
+    private fun parseOpenAIResponse(response: String, label: String): AIResponse? {
         try {
             val json = JSONObject(response)
             val content = json.getJSONArray("choices")
@@ -225,13 +249,8 @@ EXAMPLES:
                 .getString("content")
                 .trim()
 
-            val cleanJson = content
-                .removePrefix("```json")
-                .removePrefix("```")
-                .removeSuffix("```")
-                .trim()
-
-            Log.d(TAG, "Groq response: $cleanJson")
+            val cleanJson = stripMarkdownFences(content)
+            Log.d(TAG, "$label response: $cleanJson")
 
             val parsed = JSONObject(cleanJson)
             val action = parsed.getString("action")
@@ -241,12 +260,12 @@ EXAMPLES:
             return AIResponse(action, params, reply)
 
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to parse Groq response: ${e.message}")
+            Log.e(TAG, "Failed to parse $label response: ${e.message}")
             return null
         }
     }
 
-    // ==================== GEMINI (fallback) ====================
+    // ==================== GEMINI (final fallback — different API format) ====================
 
     private fun callGemini(prompt: String): AIResponse? {
         if (Thread.interrupted()) return null
@@ -318,13 +337,7 @@ EXAMPLES:
                 .getString("text")
                 .trim()
 
-            // Remove markdown code fences if present
-            val cleanJson = content
-                .removePrefix("```json")
-                .removePrefix("```")
-                .removeSuffix("```")
-                .trim()
-
+            val cleanJson = stripMarkdownFences(content)
             Log.d(TAG, "Gemini response: $cleanJson")
 
             val parsed = JSONObject(cleanJson)
@@ -338,6 +351,29 @@ EXAMPLES:
             Log.e(TAG, "Failed to parse Gemini response: ${e.message}")
             return null
         }
+    }
+
+    /** Strip markdown code fences robustly — handles nested/multiple fence levels */
+    private fun stripMarkdownFences(text: String): String {
+        var s = text.trim()
+        // Remove leading ```json or ```
+        if (s.startsWith("```")) {
+            val firstNewline = s.indexOf('\n')
+            s = if (firstNewline >= 0) s.substring(firstNewline + 1) else s.removePrefix("```")
+        }
+        // Remove trailing ```
+        if (s.endsWith("```")) {
+            s = s.substring(0, s.length - 3)
+        }
+        s = s.trim()
+        // If still wrapped, try once more
+        if (s.startsWith("```")) {
+            val firstNewline = s.indexOf('\n')
+            s = if (firstNewline >= 0) s.substring(firstNewline + 1) else s.removePrefix("```")
+            if (s.endsWith("```")) s = s.substring(0, s.length - 3)
+            s = s.trim()
+        }
+        return s
     }
 
     /**
@@ -395,7 +431,7 @@ EXAMPLES:
     )
 
     /**
-     * Summarize screen content using Groq (primary) or Gemini (fallback).
+     * Summarize screen content using all 4 backends with fallback.
      */
     fun summarizeScreen(screenText: String): String? {
         if (screenText.isBlank()) return null
@@ -404,42 +440,41 @@ EXAMPLES:
 
 $screenText
 
-Summarize what's on the screen in 2-3 SHORT sentences in casual Hinglish. Focus on the most important/relevant information. Be concise."""
+Summarize what's on the screen in 2-3 SHORT sentences in casual Hindi. Focus on the most important/relevant information. Be concise."""
 
-        // Try Groq first
+        // Try all 4 backends
         if (!groqKey.isNullOrBlank()) {
-            try {
-                val result = callGroqRaw(prompt)
-                if (result != null) return result
-            } catch (_: Exception) {}
+            try { callOpenAIRaw(GROQ_URL, groqKey!!, GROQ_MODEL, prompt)?.let { return it } } catch (_: Exception) {}
         }
-
-        // Fall back to Gemini
+        if (!mistralKey.isNullOrBlank()) {
+            try { callOpenAIRaw(MISTRAL_URL, mistralKey!!, MISTRAL_MODEL, prompt)?.let { return it } } catch (_: Exception) {}
+        }
+        if (!openaiKey.isNullOrBlank()) {
+            try { callOpenAIRaw(OPENAI_URL, openaiKey!!, OPENAI_MODEL, prompt)?.let { return it } } catch (_: Exception) {}
+        }
         if (!geminiKey.isNullOrBlank()) {
-            try {
-                return callGeminiRaw(prompt)
-            } catch (_: Exception) {}
+            try { return callGeminiRaw(prompt) } catch (_: Exception) {}
         }
 
         return null
     }
 
-    /** Raw Groq call that returns plain text (not JSON-parsed) */
-    private fun callGroqRaw(prompt: String): String? {
+    /** Raw OpenAI-compatible call that returns plain text (not JSON-parsed) */
+    private fun callOpenAIRaw(apiUrl: String, apiKey: String, model: String, prompt: String): String? {
         if (Thread.interrupted()) return null
         var connection: HttpURLConnection? = null
         try {
-            connection = URL(GROQ_URL).openConnection() as HttpURLConnection
+            connection = URL(apiUrl).openConnection() as HttpURLConnection
             activeConnection = connection
             connection.requestMethod = "POST"
             connection.setRequestProperty("Content-Type", "application/json")
-            connection.setRequestProperty("Authorization", "Bearer $groqKey")
+            connection.setRequestProperty("Authorization", "Bearer $apiKey")
             connection.connectTimeout = 5000
             connection.readTimeout = 8000
             connection.doOutput = true
 
             val requestBody = JSONObject().apply {
-                put("model", GROQ_MODEL)
+                put("model", model)
                 put("messages", JSONArray().apply {
                     put(JSONObject().apply {
                         put("role", "user")
@@ -468,7 +503,7 @@ Summarize what's on the screen in 2-3 SHORT sentences in casual Hinglish. Focus 
                 .getString("content")
                 .trim()
         } catch (e: Exception) {
-            Log.e(TAG, "Groq raw call failed: ${e.message}")
+            Log.e(TAG, "OpenAI-compatible raw call failed: ${e.message}")
             return null
         } finally {
             try { connection?.disconnect() } catch (_: Exception) {}

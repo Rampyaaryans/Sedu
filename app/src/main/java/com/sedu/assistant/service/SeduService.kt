@@ -132,7 +132,7 @@ class SeduService : Service() {
             PowerManager.PARTIAL_WAKE_LOCK,
             "sedu:wakelock"
         )
-        wakeLock?.acquire()
+        wakeLock?.acquire(10 * 60 * 1000L) // 10-minute timeout — reacquire periodically
 
         // Init overlay if permission granted
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)) {
@@ -198,6 +198,11 @@ class SeduService : Service() {
         currentState = SeduServiceState.LISTENING_WAKE_WORD
         inConversation = false
         updateNotification("Say \"Sedu\" to activate")
+
+        // Reacquire wakelock (it has a timeout)
+        try {
+            if (wakeLock?.isHeld != true) wakeLock?.acquire(10 * 60 * 1000L)
+        } catch (_: Exception) {}
 
         val enPath = ModelManager.getEnglishModelPath(this)
         val hiPath = ModelManager.getHindiModelPath(this)
@@ -436,7 +441,7 @@ class SeduService : Service() {
         updateNotification("Processing: $text")
         try { overlay?.setProcessingMode() } catch (e: Exception) { }
 
-        val localCommand = commandParser!!.parse(text)
+        val localCommand = commandParser?.parse(text) ?: SeduCommand.Unknown(text)
         Log.d(TAG, "Local parsed: $localCommand")
 
         // Simple device commands → execute INSTANTLY (no AI needed)
@@ -452,13 +457,13 @@ class SeduService : Service() {
             updateNotification("AI thinking...")
             geminiThread = Thread {
                 try {
-                    val aiResponse = geminiBrain!!.understand(text)
+                    val aiResponse = geminiBrain?.understand(text)
                     if (aiResponse != null) {
                         Log.d(TAG, "AI: ${aiResponse.action} → ${aiResponse.reply}")
-                        val aiCommand = geminiBrain!!.toCommand(aiResponse)
+                        val aiCommand = geminiBrain?.toCommand(aiResponse) ?: localCommand
                         runOnMainThread { executeCommand(aiCommand, aiResponse.reply) }
                     } else {
-                        Log.w(TAG, "Gemini failed, using local: $localCommand")
+                        Log.w(TAG, "AI failed, using local: $localCommand")
                         runOnMainThread { executeCommand(localCommand, null) }
                     }
                 } catch (_: InterruptedException) {
@@ -466,7 +471,7 @@ class SeduService : Service() {
                 }
                 geminiThread = null
             }
-            geminiThread!!.start()
+            geminiThread?.start()
         } else {
             executeCommand(localCommand, null)
         }
@@ -537,12 +542,14 @@ class SeduService : Service() {
         try { overlay?.setActiveMode() } catch (e: Exception) { }
 
         // If AI gave a custom reply, use that instead of default
+        val executor = actionExecutor ?: return
+        val tts = seduTTS ?: return
         if (aiReply != null && command !is SeduCommand.Unknown) {
-            actionExecutor!!.execute(command, seduTTS!!, aiReply) {
+            executor.execute(command, tts, aiReply) {
                 if (inConversation) startCommandListening() else endConversation()
             }
         } else {
-            actionExecutor!!.execute(command, seduTTS!!) {
+            executor.execute(command, tts) {
                 if (inConversation) startCommandListening() else endConversation()
             }
         }
@@ -580,7 +587,7 @@ class SeduService : Service() {
             val pm = getSystemService(POWER_SERVICE) as PowerManager
             if (!pm.isInteractive) {
                 val wl = pm.newWakeLock(
-                    PowerManager.FULL_WAKE_LOCK or
+                    PowerManager.SCREEN_BRIGHT_WAKE_LOCK or
                         PowerManager.ACQUIRE_CAUSES_WAKEUP or
                         PowerManager.ON_AFTER_RELEASE,
                     "sedu:screenon"
@@ -710,7 +717,7 @@ class SeduService : Service() {
         speechEngine = null
         seduTTS?.shutdown()
         try { overlay?.hide() } catch (e: Exception) { }
-        try { wakeLock?.release() } catch (e: Exception) { }
+        try { if (wakeLock?.isHeld == true) wakeLock?.release() } catch (e: Exception) { }
         isRunning = false
         isPassive = false
         currentState = SeduServiceState.IDLE
