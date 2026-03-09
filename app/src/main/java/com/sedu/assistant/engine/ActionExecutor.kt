@@ -60,9 +60,10 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
                 is SeduCommand.BrightnessUp -> adjustBrightness(true, tts, onComplete)
                 is SeduCommand.BrightnessDown -> adjustBrightness(false, tts, onComplete)
                 is SeduCommand.PlayMusic -> playMusic(command.query, tts, aiReply, onComplete)
-                is SeduCommand.Navigate -> navigate(command.destination, tts, aiReply, onComplete)
+                is SeduCommand.Navigate -> navigate(command.destination, tts, aiReply, onComplete, command.origin)
                 is SeduCommand.TakePhoto -> takePhoto(tts, onComplete)
                 is SeduCommand.SearchWeb -> searchWeb(command.query, tts, aiReply, onComplete)
+                is SeduCommand.LiveSearch -> searchWeb(command.query, tts, aiReply, onComplete)
                 is SeduCommand.SetAlarm -> setAlarm(command.hour, command.minute, tts, aiReply, onComplete)
                 is SeduCommand.SetTimer -> setTimer(command.minutes, tts, aiReply, onComplete)
                 is SeduCommand.AskUser -> {
@@ -207,6 +208,7 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
         }
 
         val knownApps = mapOf(
+            // Video & Social
             "youtube" to "com.google.android.youtube",
             "instagram" to "com.instagram.android",
             "facebook" to "com.facebook.katana",
@@ -215,30 +217,100 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
             "twitter" to "com.twitter.android",
             "x" to "com.twitter.android",
             "snapchat" to "com.snapchat.android",
+            "linkedin" to "com.linkedin.android",
+            "reddit" to "com.reddit.frontpage",
+            "pinterest" to "com.pinterest",
+            "threads" to "com.instagram.barcelona",
+            "tiktok" to "com.zhiliaoapp.musically",
+            // Music & Entertainment
+            "spotify" to "com.spotify.music",
+            "youtube music" to "com.google.android.apps.youtube.music",
+            "yt music" to "com.google.android.apps.youtube.music",
+            "jiosaavn" to "com.jio.media.jiobeats",
+            "saavn" to "com.jio.media.jiobeats",
+            "gaana" to "com.gaana",
+            "wynk" to "com.bsbportal.music",
+            "wynk music" to "com.bsbportal.music",
+            "apple music" to "com.apple.android.music",
+            "amazon music" to "com.amazon.mp3",
+            "hungama" to "com.hungama.myplay.activity",
+            "netflix" to "com.netflix.mediaclient",
+            "hotstar" to "in.startv.hotstar",
+            "disney" to "in.startv.hotstar",
+            "prime video" to "com.amazon.avod.thirdpartyclient",
+            "amazon prime" to "com.amazon.avod.thirdpartyclient",
+            "zee5" to "com.graymatrix.did",
+            "sonyliv" to "com.sonyliv",
+            "jiocinema" to "com.jio.media.ondemand",
+            "mx player" to "com.mxtech.videoplayer.ad",
+            "vlc" to "org.videolan.vlc",
+            // Google Apps
             "chrome" to "com.android.chrome",
             "gmail" to "com.google.android.gm",
             "maps" to "com.google.android.apps.maps",
             "google maps" to "com.google.android.apps.maps",
+            "google" to "com.google.android.googlequicksearchbox",
+            "drive" to "com.google.android.apps.docs",
+            "google drive" to "com.google.android.apps.docs",
+            "docs" to "com.google.android.apps.docs.editors.docs",
+            "sheets" to "com.google.android.apps.docs.editors.sheets",
+            "slides" to "com.google.android.apps.docs.editors.slides",
+            "keep" to "com.google.android.keep",
+            "google keep" to "com.google.android.keep",
+            "meet" to "com.google.android.apps.tachyon",
+            "google meet" to "com.google.android.apps.tachyon",
+            "translate" to "com.google.android.apps.translate",
+            "lens" to "com.google.ar.lens",
+            "google lens" to "com.google.ar.lens",
+            // Utilities
             "camera" to "com.android.camera",
             "gallery" to "com.google.android.apps.photos",
             "photos" to "com.google.android.apps.photos",
             "settings" to "com.android.settings",
             "calculator" to "com.google.android.calculator",
             "clock" to "com.google.android.deskclock",
+            "alarm" to "com.google.android.deskclock",
             "calendar" to "com.google.android.calendar",
-            "spotify" to "com.spotify.music",
-            "netflix" to "com.netflix.mediaclient",
+            "files" to "com.google.android.apps.nbu.files",
+            "file manager" to "com.google.android.apps.nbu.files",
+            "recorder" to "com.google.android.apps.recorder",
+            "notes" to "com.google.android.keep",
+            "contacts" to "com.google.android.contacts",
+            "messages" to "com.google.android.apps.messaging",
+            "phone" to "com.google.android.dialer",
+            "dialer" to "com.google.android.dialer",
+            // Shopping & Food
             "amazon" to "in.amazon.mShop.android.shopping",
             "flipkart" to "com.flipkart.android",
+            "myntra" to "com.myntra.android",
+            "meesho" to "com.meesho.supply",
+            "zomato" to "com.application.zomato",
+            "swiggy" to "in.swiggy.android",
+            "blinkit" to "com.grofers.customerapp",
+            "zepto" to "com.zeptoconsumerapp",
+            "bigbasket" to "com.bigbasket.mobileapp",
+            // Payments
             "paytm" to "net.one97.paytm",
             "gpay" to "com.google.android.apps.nbu.paisa.user",
             "google pay" to "com.google.android.apps.nbu.paisa.user",
             "phonepe" to "com.phonepe.app",
             "phone pe" to "com.phonepe.app",
-            "zomato" to "com.application.zomato",
-            "swiggy" to "in.swiggy.android",
+            "cred" to "com.dreamplug.androidapp",
+            "bhim" to "in.org.npci.upiapp",
+            // Transport
             "uber" to "com.ubercab",
             "ola" to "com.olacabs.customer",
+            "rapido" to "com.rapido.passenger",
+            // Communication
+            "zoom" to "us.zoom.videomeetings",
+            "teams" to "com.microsoft.teams",
+            "microsoft teams" to "com.microsoft.teams",
+            "skype" to "com.skype.raider",
+            "discord" to "com.discord",
+            // Productivity
+            "notion" to "notion.id",
+            "todolist" to "com.todoist",
+            "trello" to "com.trello",
         )
 
         val lowerName = appName.lowercase()
@@ -645,19 +717,36 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
         return false
     }
 
-    private fun navigate(destination: String, tts: SeduTTS, aiReply: String?, onComplete: () -> Unit) {
+    private fun navigate(destination: String, tts: SeduTTS, aiReply: String?, onComplete: () -> Unit, origin: String = "") {
         tts.speak(aiReply ?: "$destination ka direction deta hoon") {
             try {
-                val gmmUri = Uri.parse("google.navigation:q=${Uri.encode(destination)}")
-                val intent = Intent(Intent.ACTION_VIEW, gmmUri).apply {
-                    `package` = "com.google.android.apps.maps"
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                if (origin.isNotBlank() && origin.lowercase() != "current location" && origin.lowercase() != "meri location") {
+                    // Origin + Destination: open Google Maps directions between two points
+                    val mapsUrl = "https://www.google.com/maps/dir/${Uri.encode(origin)}/${Uri.encode(destination)}"
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(mapsUrl)).apply {
+                        `package` = "com.google.android.apps.maps"
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    }
+                    context.startActivity(intent)
+                } else {
+                    // Just destination — use Google Maps navigation (starts from current location)
+                    val gmmUri = Uri.parse("google.navigation:q=${Uri.encode(destination)}")
+                    val intent = Intent(Intent.ACTION_VIEW, gmmUri).apply {
+                        `package` = "com.google.android.apps.maps"
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    }
+                    context.startActivity(intent)
                 }
-                context.startActivity(intent)
             } catch (e: Exception) {
                 try {
+                    // Fallback: browser-based Google Maps
+                    val url = if (origin.isNotBlank() && origin.lowercase() != "current location") {
+                        "https://www.google.com/maps/dir/${Uri.encode(origin)}/${Uri.encode(destination)}"
+                    } else {
+                        "https://www.google.com/maps/search/${Uri.encode(destination)}"
+                    }
                     val intent = Intent(Intent.ACTION_VIEW).apply {
-                        data = Uri.parse("https://www.google.com/maps/search/${Uri.encode(destination)}")
+                        data = Uri.parse(url)
                         flags = Intent.FLAG_ACTIVITY_NEW_TASK
                     }
                     context.startActivity(intent)

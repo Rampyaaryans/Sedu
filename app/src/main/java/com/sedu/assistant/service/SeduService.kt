@@ -24,6 +24,7 @@ import com.sedu.assistant.engine.CommandParser
 import com.sedu.assistant.engine.ContactsHelper
 import com.sedu.assistant.engine.SpeechEngine
 import com.sedu.assistant.engine.WakeWordEngine
+import com.sedu.assistant.memory.SeduMemory
 import com.sedu.assistant.model.SeduCommand
 import com.sedu.assistant.overlay.SeduOverlay
 import com.sedu.assistant.tts.SeduTTS
@@ -43,6 +44,7 @@ class SeduService : Service() {
     private var geminiBrain: GeminiBrain? = null
     private var voiceProfile: VoiceProfile? = null
     private var contactsHelper: ContactsHelper? = null
+    private var seduMemory: SeduMemory? = null
     private var inConversation = false
     private var lastActivityTime = 0L
     private val inactivityHandler = Handler(Looper.getMainLooper())
@@ -109,6 +111,11 @@ class SeduService : Service() {
             geminiBrain?.setApiKey(savedKey)
         }
         Log.d(TAG, "Gemini AI brain initialized, hasKey=${geminiBrain?.hasApiKey()}")
+
+        // Initialize RAG memory system
+        seduMemory = SeduMemory(this)
+        geminiBrain?.setMemory(seduMemory!!)
+        Log.d(TAG, "Memory system initialized")
 
         // ActionExecutor needs geminiBrain for screen reading
         actionExecutor = ActionExecutor(this, geminiBrain)
@@ -460,6 +467,8 @@ class SeduService : Service() {
                     val aiResponse = geminiBrain?.understand(text)
                     if (aiResponse != null) {
                         Log.d(TAG, "AI: ${aiResponse.action} → ${aiResponse.reply}")
+                        // Save to memory for RAG context
+                        geminiBrain?.saveToMemory(text, aiResponse)
                         val aiCommand = geminiBrain?.toCommand(aiResponse) ?: localCommand
                         runOnMainThread { executeCommand(aiCommand, aiResponse.reply) }
                     } else {
@@ -565,19 +574,27 @@ class SeduService : Service() {
         isRunning = true
         inConversation = false
         inactivityHandler.removeCallbacks(inactivityChecker)
+
+        // Stop everything that holds the mic
         speechEngine?.stop()
         speechEngine = null
         seduTTS?.stop()
         geminiThread?.interrupt()
         geminiThread = null
+        wakeWordEngine?.stop()
+        wakeWordEngine = null
         try { overlay?.hide() } catch (_: Exception) {}
 
         currentState = SeduServiceState.LISTENING_WAKE_WORD
         updateNotification("Sedu so raha hai — 'Sedu' bolke jagao")
 
-        // Keep wake word listening
-        startWakeWordListening()
-        startWakeWordWatchdog()
+        // Longer delay (2s) for Google SpeechRecognizer to fully release mic
+        // then start wake word with aggressive watchdog
+        Handler(Looper.getMainLooper()).postDelayed({
+            if (!isPassive) return@postDelayed  // Already went active
+            startWakeWordListening()
+            startWakeWordWatchdog()
+        }, 2000)
     }
 
     /** Wake the device screen when wake word is detected */
@@ -624,21 +641,25 @@ class SeduService : Service() {
         }, 1500)
     }
 
-    /** Watchdog — checks every 60s that wake word engine is alive, restarts if dead */
+    /** Watchdog — checks regularly that wake word engine is alive, restarts if dead */
     private fun startWakeWordWatchdog() {
         stopWakeWordWatchdog()
+        var checkCount = 0
         wakeWordWatchdog = Runnable {
             if (!inConversation && isRunning) {
                 val alive = wakeWordEngine?.isAlive() == true
                 if (!alive) {
-                    Log.w(TAG, "Watchdog: wake word engine dead, restarting")
+                    Log.w(TAG, "Watchdog: wake word engine dead (check #$checkCount), restarting")
                     startWakeWordListening()
                 }
+                checkCount++
             }
-            // Re-schedule
-            inactivityHandler.postDelayed(wakeWordWatchdog!!, WATCHDOG_INTERVAL_MS)
+            // First 5 checks every 5s (aggressive), then back to 15s
+            val interval = if (checkCount < 5) 5_000L else WATCHDOG_INTERVAL_MS
+            inactivityHandler.postDelayed(wakeWordWatchdog!!, interval)
         }
-        inactivityHandler.postDelayed(wakeWordWatchdog!!, WATCHDOG_INTERVAL_MS)
+        // First check after 3s — catch immediate failures fast
+        inactivityHandler.postDelayed(wakeWordWatchdog!!, 3_000L)
     }
 
     private fun stopWakeWordWatchdog() {

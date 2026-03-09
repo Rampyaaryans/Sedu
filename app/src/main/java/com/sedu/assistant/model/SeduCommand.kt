@@ -32,9 +32,10 @@ sealed class SeduCommand {
 
     // Media & Navigation
     data class PlayMusic(val query: String) : SeduCommand()
-    data class Navigate(val destination: String) : SeduCommand()
+    data class Navigate(val destination: String, val origin: String = "") : SeduCommand()
     object TakePhoto : SeduCommand()
     data class SearchWeb(val query: String) : SeduCommand()
+    data class LiveSearch(val query: String) : SeduCommand()
 
     // Timers & Alarms
     data class SetAlarm(val hour: Int, val minute: Int) : SeduCommand()
