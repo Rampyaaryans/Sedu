@@ -63,8 +63,8 @@ class SeduTTS(context: Context) {
 
                 // Set Hindi locale for pure Hindi output
                 tts?.language = Locale("hi", "IN")
-                tts?.setPitch(0.95f)
-                tts?.setSpeechRate(0.85f)
+                tts?.setPitch(1.0f)
+                tts?.setSpeechRate(0.95f)
 
                 // Set listener ONCE — never overwrite
                 tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
@@ -109,13 +109,13 @@ class SeduTTS(context: Context) {
             val voices = tts?.voices ?: return
             val voiceMap = voices.associateBy { it.name }
 
-            // Hindi voice preferences (best quality first)
+            // Hindi voice preferences — MALE voices first for natural Indian male sound
             val hindiPrefs = listOf(
-                "hi-in-x-hid-local",    // Hindi female D (clearest)
-                "hi-in-x-hia-local",    // Hindi female A
-                "hi-in-x-hie-local",    // Hindi male E
+                "hi-in-x-hie-local",    // Hindi male E (best male)
                 "hi-in-x-hic-local",    // Hindi male C
                 "hi-in-x-hib-local",    // Hindi B
+                "hi-in-x-hid-local",    // Hindi female D
+                "hi-in-x-hia-local",    // Hindi female A
             )
 
             for (name in hindiPrefs) {
@@ -176,8 +176,11 @@ class SeduTTS(context: Context) {
             tts?.voice = hindiVoice
         }
 
-        tts?.speak(text, TextToSpeech.QUEUE_ADD, null, utteranceId)
-        Log.d(TAG, "Speaking [HI]: $text")
+        // Strip emojis and special symbols — TTS reads them as English words
+        val cleanText = text.replace(Regex("[\\x{1F600}-\\x{1F64F}\\x{1F300}-\\x{1F5FF}\\x{1F680}-\\x{1F6FF}\\x{1F1E0}-\\x{1F1FF}\\x{2600}-\\x{27BF}\\x{2300}-\\x{23FF}\\x{2B50}\\x{FE00}-\\x{FE0F}\\x{200D}\\x{20E3}\\x{E0020}-\\x{E007F}]"), "").trim()
+
+        tts?.speak(cleanText, TextToSpeech.QUEUE_ADD, null, utteranceId)
+        Log.d(TAG, "Speaking [HI]: $cleanText")
     }
 
     /**

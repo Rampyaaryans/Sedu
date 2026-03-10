@@ -68,13 +68,13 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
                 is SeduCommand.SetTimer -> setTimer(command.minutes, tts, aiReply, onComplete)
                 is SeduCommand.AskUser -> {
                     // AskUser is handled by SeduService directly, shouldn't reach here
-                    tts.speak(aiReply ?: "Kya chahiye?") { onComplete() }
+                    tts.speak(aiReply ?: "क्या चाहिए?") { onComplete() }
                 }
                 is SeduCommand.TakeScreenshot -> {
-                    tts.speak("Yeh kaam abhi nahi ho sakta.") { onComplete() }
+                    tts.speak("ये काम अभी नहीं हो सकता।") { onComplete() }
                 }
                 is SeduCommand.ReadNotifications -> {
-                    tts.speak("Soochna dikhata hoon") {
+                    tts.speak("सूचना दिखाता हूँ") {
                         try {
                             val intent = Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")
                             intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
@@ -93,7 +93,7 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error executing command", e)
-            tts.speak("Error aa gaya, maafi chahta hoon.") { onComplete() }
+            tts.speak("एरर आ गया, माफ़ी चाहता हूँ।") { onComplete() }
         }
     }
 
@@ -101,14 +101,14 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
 
     private fun makeCall(contact: String, tts: SeduTTS, aiReply: String?, onComplete: () -> Unit) {
         if (contact.isBlank()) {
-            tts.speak(aiReply ?: "Kisko call karun? Naam boliye.") { onComplete() }
+            tts.speak(aiReply ?: "किसको कॉल करूँ? नाम बोलो।") { onComplete() }
             return
         }
         Log.d(TAG, "makeCall: resolving contact='$contact'")
         val phoneNumber = resolveContact(contact)
         Log.d(TAG, "makeCall: resolved number='$phoneNumber'")
         if (phoneNumber != null) {
-            tts.speak(aiReply ?: "$contact ko call kar raha hoon") {
+            tts.speak(aiReply ?: "$contact को कॉल कर रहा हूँ") {
                 try {
                     val uri = Uri.fromParts("tel", phoneNumber, null)
                     Log.d(TAG, "makeCall: placing call to $uri")
@@ -139,7 +139,7 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
             }
         } else {
             Log.w(TAG, "makeCall: contact '$contact' NOT FOUND in contacts")
-            tts.speak("$contact nahi mila, dialer khol raha hoon") {
+            tts.speak("$contact नहीं मिला, डायलर खोल रहा हूँ") {
                 try {
                     val intent = Intent(Intent.ACTION_DIAL).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
                     context.startActivity(intent)
@@ -151,12 +151,12 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
 
     private fun sendSms(contact: String, message: String, tts: SeduTTS, aiReply: String?, onComplete: () -> Unit) {
         if (contact.isBlank()) {
-            tts.speak(aiReply ?: "Kisko SMS bhejun?") { onComplete() }
+            tts.speak(aiReply ?: "किसको एसएमएस भेजूँ?") { onComplete() }
             return
         }
         val phoneNumber = resolveContact(contact)
         if (phoneNumber != null) {
-            tts.speak(aiReply ?: "$contact ke liye SMS khol raha hoon") {
+            tts.speak(aiReply ?: "$contact के लिए एसएमएस खोल रहा हूँ") {
                 try {
                     val smsUri = Uri.parse("smsto:$phoneNumber")
                     val intent = Intent(Intent.ACTION_SENDTO, smsUri).apply {
@@ -168,18 +168,18 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
                 onComplete()
             }
         } else {
-            tts.speak("$contact contacts mein nahi mila.") { onComplete() }
+            tts.speak("$contact कॉन्टैक्ट्स में नहीं मिला।") { onComplete() }
         }
     }
 
     private fun sendWhatsApp(contact: String, message: String, tts: SeduTTS, aiReply: String?, onComplete: () -> Unit) {
         if (contact.isBlank()) {
-            tts.speak(aiReply ?: "Kisko WhatsApp karun?") { onComplete() }
+            tts.speak(aiReply ?: "किसको व्हाट्सएप करूँ?") { onComplete() }
             return
         }
         val phoneNumber = resolveContact(contact)
         if (phoneNumber != null) {
-            tts.speak(aiReply ?: "$contact ko WhatsApp bhej raha hoon") {
+            tts.speak(aiReply ?: "$contact को व्हाट्सएप भेज रहा हूँ") {
                 try {
                     val number = phoneNumber.replace("+", "").replace(" ", "")
                     val encodedMsg = if (message.isNotBlank()) "?text=${Uri.encode(message)}" else ""
@@ -192,7 +192,7 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
                 onComplete()
             }
         } else {
-            tts.speak("$contact nahi mila, WhatsApp khol raha hoon") {
+            tts.speak("$contact नहीं मिला, व्हाट्सएप खोल रहा हूँ") {
                 openAppByPackage("com.whatsapp")
                 onComplete()
             }
@@ -203,7 +203,7 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
 
     private fun openApp(appName: String, tts: SeduTTS, aiReply: String?, onComplete: () -> Unit) {
         if (appName.isBlank()) {
-            tts.speak("Kaunsa app kholun?") { onComplete() }
+            tts.speak("कौनसा ऐप खोलूँ?") { onComplete() }
             return
         }
 
@@ -311,6 +311,42 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
             "notion" to "notion.id",
             "todolist" to "com.todoist",
             "trello" to "com.trello",
+            // Hindi names for common apps
+            "यूट्यूब" to "com.google.android.youtube",
+            "क्रोम" to "com.android.chrome",
+            "मैप्स" to "com.google.android.apps.maps",
+            "मैप" to "com.google.android.apps.maps",
+            "नक्शा" to "com.google.android.apps.maps",
+            "गूगल" to "com.google.android.googlequicksearchbox",
+            "व्हाट्सएप" to "com.whatsapp",
+            "इंस्टाग्राम" to "com.instagram.android",
+            "स्पॉटिफाई" to "com.spotify.music",
+            "फोन" to "com.google.android.dialer",
+            "कॉल" to "com.google.android.dialer",
+            "मैसेज" to "com.google.android.apps.messaging",
+            "संदेश" to "com.google.android.apps.messaging",
+            "कैमरा" to "com.android.camera",
+            "गैलरी" to "com.google.android.apps.photos",
+            "फोटो" to "com.google.android.apps.photos",
+            "कैलकुलेटर" to "com.google.android.calculator",
+            "घड़ी" to "com.google.android.deskclock",
+            "अलार्म" to "com.google.android.deskclock",
+            "कैलेंडर" to "com.google.android.calendar",
+            "सेटिंग्स" to "com.android.settings",
+            "सेटिंग" to "com.android.settings",
+            "फ्लिपकार्ट" to "com.flipkart.android",
+            "अमेज़न" to "in.amazon.mShop.android.shopping",
+            "जोमैटो" to "com.application.zomato",
+            "स्विगी" to "in.swiggy.android",
+            "पेटीएम" to "net.one97.paytm",
+            "गूगल पे" to "com.google.android.apps.nbu.paisa.user",
+            "फोनपे" to "com.phonepe.app",
+            "ओला" to "com.olacabs.customer",
+            "उबर" to "com.ubercab",
+            "नेटफ्लिक्स" to "com.netflix.mediaclient",
+            "हॉटस्टार" to "in.startv.hotstar",
+            "टेलीग्राम" to "org.telegram.messenger",
+            "telegram" to "org.telegram.messenger",
         )
 
         val lowerName = appName.lowercase()
@@ -319,9 +355,9 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
         if (knownPkg != null) {
             val launched = openAppByPackage(knownPkg)
             if (launched) {
-                tts.speak(aiReply ?: "$appName khol raha hoon") { onComplete() }
+                tts.speak(aiReply ?: "$appName खोल रहा हूँ") { onComplete() }
             } else {
-                tts.speak("$appName installed nahi hai") { onComplete() }
+                tts.speak("$appName फोन में नहीं है") { onComplete() }
             }
             return
         }
@@ -337,16 +373,16 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
         if (match != null) {
             val intent = pm.getLaunchIntentForPackage(match.activityInfo.packageName)
             if (intent != null) {
-                tts.speak(aiReply ?: "$appName khol raha hoon") {
+                tts.speak(aiReply ?: "$appName खोल रहा हूँ") {
                     intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
                     context.startActivity(intent)
                     onComplete()
                 }
             } else {
-                tts.speak("$appName open nahi ho raha.") { onComplete() }
+                tts.speak("$appName खुल नहीं रहा।") { onComplete() }
             }
         } else {
-            tts.speak("$appName nahi mila phone mein.") { onComplete() }
+            tts.speak("$appName फ़ोन में नहीं मिला।") { onComplete() }
         }
     }
 
@@ -377,7 +413,7 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
             "security" -> Settings.ACTION_SECURITY_SETTINGS
             else -> Settings.ACTION_SETTINGS
         }
-        tts.speak(aiReply ?: "Jagah khol raha hoon") {
+        tts.speak(aiReply ?: "सेटिंग्स खोल रहा हूँ") {
             try {
                 val intent = Intent(action).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
                 context.startActivity(intent)
@@ -390,18 +426,18 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
 
     private fun tellTime(tts: SeduTTS, onComplete: () -> Unit) {
         val time = SimpleDateFormat("h:mm a", Locale("hi", "IN")).format(Date())
-        tts.speak("Abhi $time baj rahe hain") { onComplete() }
+        tts.speak("अभी $time बज रहे हैं") { onComplete() }
     }
 
     private fun tellDate(tts: SeduTTS, onComplete: () -> Unit) {
         val date = SimpleDateFormat("EEEE, d MMMM yyyy", Locale("hi", "IN")).format(Date())
-        tts.speak("Aaj $date hai") { onComplete() }
+        tts.speak("आज $date है") { onComplete() }
     }
 
     private fun tellBattery(tts: SeduTTS, onComplete: () -> Unit) {
         val bm = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
         val level = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
-        tts.speak("Battery $level pratishat hai") { onComplete() }
+        tts.speak("बैटरी $level प्रतिशत है") { onComplete() }
     }
 
     // ==================== VOLUME & SOUND ====================
@@ -410,20 +446,20 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
         val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
         am.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_RAISE, AudioManager.FLAG_SHOW_UI)
         am.adjustStreamVolume(AudioManager.STREAM_RING, AudioManager.ADJUST_RAISE, AudioManager.FLAG_SHOW_UI)
-        tts.speak("Awaaz badha di") { onComplete() }
+        tts.speak("आवाज़ बढ़ा दी") { onComplete() }
     }
 
     private fun volumeDown(tts: SeduTTS, onComplete: () -> Unit) {
         val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
         am.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI)
         am.adjustStreamVolume(AudioManager.STREAM_RING, AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI)
-        tts.speak("Awaaz kam kar di") { onComplete() }
+        tts.speak("आवाज़ कम कर दी") { onComplete() }
     }
 
     private fun mutePhone(tts: SeduTTS, onComplete: () -> Unit) {
         val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
         am.ringerMode = AudioManager.RINGER_MODE_SILENT
-        tts.speak("Fon chup kar diya") { onComplete() }
+        tts.speak("फ़ोन चुप कर दिया") { onComplete() }
     }
 
     // ==================== HARDWARE TOGGLES ====================
@@ -433,12 +469,12 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
             try {
                 val cm = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
                 cm.setTorchMode(cm.cameraIdList[0], true)
-                tts.speak("Torch chalu") { onComplete() }
+                tts.speak("टॉर्च चालू") { onComplete() }
             } catch (e: Exception) {
-                tts.speak("Torch chalu nahi ho raha") { onComplete() }
+                tts.speak("टॉर्च चालू नहीं हो रहा") { onComplete() }
             }
         } else {
-            tts.speak("Torch nahi hai") { onComplete() }
+            tts.speak("टॉर्च नहीं है") { onComplete() }
         }
     }
 
@@ -447,18 +483,18 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
             try {
                 val cm = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
                 cm.setTorchMode(cm.cameraIdList[0], false)
-                tts.speak("Torch band") { onComplete() }
+                tts.speak("टॉर्च बंद") { onComplete() }
             } catch (e: Exception) {
-                tts.speak("Torch band nahi ho raha") { onComplete() }
+                tts.speak("टॉर्च बंद नहीं हो रहा") { onComplete() }
             }
         } else {
-            tts.speak("Torch nahi hai") { onComplete() }
+            tts.speak("टॉर्च नहीं है") { onComplete() }
         }
     }
 
     private fun wifiToggle(enable: Boolean, tts: SeduTTS, onComplete: () -> Unit) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            tts.speak("WiFi ki jagah khol raha hoon") {
+            tts.speak("वाईफ़ाई सेटिंग खोल रहा हूँ") {
                 try {
                     val intent = Intent(Settings.Panel.ACTION_WIFI).apply {
                         flags = Intent.FLAG_ACTIVITY_NEW_TASK
@@ -472,13 +508,13 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
             val wm = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
             @Suppress("DEPRECATION")
             wm.isWifiEnabled = enable
-            tts.speak(if (enable) "WiFi chalu kar diya" else "WiFi band kar diya") { onComplete() }
+            tts.speak(if (enable) "वाईफ़ाई चालू कर दिया" else "वाईफ़ाई बंद कर दिया") { onComplete() }
         }
     }
 
     private fun bluetoothToggle(enable: Boolean, tts: SeduTTS, onComplete: () -> Unit) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            tts.speak("Bluetooth ki jagah khol raha hoon") {
+            tts.speak("ब्लूटूथ सेटिंग खोल रहा हूँ") {
                 try {
                     val intent = Intent(Settings.ACTION_BLUETOOTH_SETTINGS).apply {
                         flags = Intent.FLAG_ACTIVITY_NEW_TASK
@@ -494,12 +530,12 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
                 if (ba != null) {
                     @Suppress("DEPRECATION", "MissingPermission")
                     if (enable) ba.enable() else ba.disable()
-                    tts.speak(if (enable) "Bluetooth chalu" else "Bluetooth band") { onComplete() }
+                    tts.speak(if (enable) "ब्लूटूथ चालू" else "ब्लूटूथ बंद") { onComplete() }
                 } else {
-                    tts.speak("Bluetooth nahi hai") { onComplete() }
+                    tts.speak("ब्लूटूथ नहीं है") { onComplete() }
                 }
             } catch (e: Exception) {
-                tts.speak("Bluetooth ki jagah khol raha hoon") {
+                tts.speak("ब्लूटूथ सेटिंग खोल रहा हूँ") {
                     try {
                         val intent = Intent(Settings.ACTION_BLUETOOTH_SETTINGS).apply {
                             flags = Intent.FLAG_ACTIVITY_NEW_TASK
@@ -516,7 +552,7 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
         try {
             val cr = context.contentResolver
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.System.canWrite(context)) {
-                tts.speak("Roshni ki anumati chahiye, jagah khol raha hoon") {
+                tts.speak("रोशनी की अनुमति चाहिए, सेटिंग खोल रहा हूँ") {
                     try {
                         val intent = Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
                             data = Uri.parse("package:${context.packageName}")
@@ -533,10 +569,10 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
             val current = Settings.System.getInt(cr, Settings.System.SCREEN_BRIGHTNESS, 128)
             val newVal = if (increase) (current + 50).coerceAtMost(255) else (current - 50).coerceAtLeast(10)
             Settings.System.putInt(cr, Settings.System.SCREEN_BRIGHTNESS, newVal)
-            tts.speak(if (increase) "Roshni badha di" else "Roshni kam kar di") { onComplete() }
+            tts.speak(if (increase) "रोशनी बढ़ा दी" else "रोशनी कम कर दी") { onComplete() }
         } catch (e: Exception) {
             Log.e(TAG, "Brightness error", e)
-            tts.speak("Roshni badal nahi pa raha") { onComplete() }
+            tts.speak("रोशनी बदल नहीं पा रहा") { onComplete() }
         }
     }
 
@@ -757,7 +793,7 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
     }
 
     private fun takePhoto(tts: SeduTTS, onComplete: () -> Unit) {
-        tts.speak("Camera khol raha hoon") {
+        tts.speak("कैमरा खोल रहा हूँ") {
             try {
                 val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK
@@ -776,7 +812,7 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
     }
 
     private fun searchWeb(query: String, tts: SeduTTS, aiReply: String?, onComplete: () -> Unit) {
-        val reply = aiReply ?: "$query search kar raha hoon"
+        val reply = aiReply ?: "$query सर्च कर रहा हूँ"
         tts.speak(reply) {
             // Open Google search in Chrome (preferred) or any browser
             var opened = false
@@ -804,7 +840,7 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
     // ==================== TIMERS & ALARMS ====================
 
     private fun setAlarm(hour: Int, minute: Int, tts: SeduTTS, aiReply: String?, onComplete: () -> Unit) {
-        tts.speak(aiReply ?: "$hour baj ke $minute minute pe alarm lagaya") {
+        tts.speak(aiReply ?: "$hour बजके $minute मिनट पे अलार्म लगाया") {
             try {
                 val intent = Intent(AlarmClock.ACTION_SET_ALARM).apply {
                     putExtra(AlarmClock.EXTRA_HOUR, hour)
@@ -819,7 +855,7 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
     }
 
     private fun setTimer(minutes: Int, tts: SeduTTS, aiReply: String?, onComplete: () -> Unit) {
-        tts.speak(aiReply ?: "$minutes minute ka timer start") {
+        tts.speak(aiReply ?: "$minutes मिनट का टाइमर शुरू") {
             try {
                 val intent = Intent(AlarmClock.ACTION_SET_TIMER).apply {
                     putExtra(AlarmClock.EXTRA_LENGTH, minutes * 60)
@@ -835,7 +871,7 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
     // ==================== SCREEN READING ====================
 
     private fun readScreen(tts: SeduTTS, aiReply: String?, onComplete: () -> Unit) {
-        tts.speak("Screen reading feature abhi available nahi hai.") { onComplete() }
+        tts.speak("स्क्रीन रीडिंग अभी उपलब्ध नहीं है।") { onComplete() }
     }
 
     // ==================== CONTACT RESOLUTION (FUZZY) ====================
