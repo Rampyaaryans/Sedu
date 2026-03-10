@@ -307,7 +307,7 @@ class SeduService : Service() {
         // Wait 400ms for mic to fully release from WakeWordEngine, then speak greeting
         Handler(Looper.getMainLooper()).postDelayed({
             if (!inConversation) { endConversation(); return@postDelayed }
-            seduTTS?.speak("Boliye, kya kaam hai?") {
+            seduTTS?.speak("राम राम भाई, क्या मदद चाहिए?") {
                 // TTS done callback — marshal to main thread
                 Handler(Looper.getMainLooper()).post {
                     if (inConversation) startCommandListening()
@@ -346,7 +346,7 @@ class SeduService : Service() {
         // Wait for mic release, then speak greeting and start recognizer
         Handler(Looper.getMainLooper()).postDelayed({
             if (!inConversation) return@postDelayed
-            seduTTS?.speak("Haan boliye?") {
+            seduTTS?.speak("हाँ बोलो भाई?") {
                 Handler(Looper.getMainLooper()).postDelayed({
                     if (inConversation) startGoogleSpeechRecognizer()
                 }, 300)
@@ -414,11 +414,11 @@ class SeduService : Service() {
                 Log.d(TAG, "Speech timeout, conversation=$inConversation, prompted=$hasPromptedOnSilence")
                 if (inConversation && !hasPromptedOnSilence) {
                     hasPromptedOnSilence = true
-                    seduTTS?.speak("Main sun raha hoon, boliye") {
+                    seduTTS?.speak("मैं सुन रहा हूँ, बोलो") {
                         if (inConversation) startCommandListening()
                     }
                 } else {
-                    seduTTS?.speak("Koi jawaab nahi aaya, alvida") {
+                    seduTTS?.speak("कोई जवाब नहीं आया, चलो फिर मिलते हैं") {
                         endConversation()
                     }
                 }
@@ -503,7 +503,7 @@ class SeduService : Service() {
 
     private fun executeCommand(command: SeduCommand, aiReply: String?) {
         if (command is SeduCommand.Goodbye) {
-            val reply = aiReply ?: "Theek hai, alvida!"
+            val reply = aiReply ?: "ठीक है भाई, अपना ध्यान रखना"
             seduTTS?.speak(reply) {
                 endConversation()
             }
@@ -512,7 +512,7 @@ class SeduService : Service() {
 
         // AskUser — Gemini wants to clarify something, speak question then listen for answer
         if (command is SeduCommand.AskUser) {
-            val reply = aiReply ?: "Kya chahiye bilkul?"
+            val reply = aiReply ?: "बताओ क्या चाहिए?"
             seduTTS?.speak(reply) {
                 // After asking, listen for user's answer
                 if (inConversation) startCommandListening() else endConversation()
@@ -522,7 +522,7 @@ class SeduService : Service() {
 
         // Greeting from AI
         if (command is SeduCommand.Unknown && command.rawText.startsWith("greeting")) {
-            val reply = aiReply ?: "Namaste! Kya madad karun?"
+            val reply = aiReply ?: "राम राम भाई, क्या मदद चाहिए?"
             seduTTS?.speak(reply) {
                 if (inConversation) startCommandListening() else endConversation()
             }
@@ -531,7 +531,7 @@ class SeduService : Service() {
 
         // Chat response from AI
         if (command is SeduCommand.Unknown && command.rawText.startsWith("chat:")) {
-            val reply = aiReply ?: "Boliye, main sun raha hoon"
+            val reply = aiReply ?: "बोलो, मैं सुन रहा हूँ"
             seduTTS?.speak(reply) {
                 if (inConversation) startCommandListening() else endConversation()
             }
@@ -540,7 +540,7 @@ class SeduService : Service() {
 
         // Any remaining Unknown — still give a useful response
         if (command is SeduCommand.Unknown) {
-            val reply = aiReply ?: "Ek baar aur boliye, dhyan se sunta hoon"
+            val reply = aiReply ?: "एक बार और बोलो, ध्यान से सुनता हूँ"
             seduTTS?.speak(reply) {
                 if (inConversation) startCommandListening() else endConversation()
             }

@@ -85,10 +85,10 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
                 }
                 is SeduCommand.ReadScreen -> readScreen(tts, aiReply, onComplete)
                 is SeduCommand.Goodbye -> {
-                    tts.speak(aiReply ?: "Chal alvida! Jab chahein bulana.") { onComplete() }
+                    tts.speak(aiReply ?: "ठीक है भाई, अपना ध्यान रखना") { onComplete() }
                 }
                 is SeduCommand.Unknown -> {
-                    tts.speak(aiReply ?: "Boliye, main sun raha hoon") { onComplete() }
+                    tts.speak(aiReply ?: "बोलो, मैं सुन रहा हूँ") { onComplete() }
                 }
             }
         } catch (e: Exception) {
