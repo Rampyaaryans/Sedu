@@ -32,8 +32,10 @@ class WakeWordEngine(
         private const val SAMPLE_RATE = 16000
         private const val BUFFER_SIZE = 32000 // 2 seconds at 16kHz
 
-        // Minimum RMS energy — ambient noise is ~5-8 RMS, speech is ~50 RMS
-        private const val MIN_WAKE_RMS = 15.0
+        // Minimum RMS energy — lowered for far-field wake word detection
+        // Ambient silence is ~0-2 RMS, far-field speech is ~8-20 RMS, near speech is ~50+ RMS
+        // Vosk pattern matching is the real filter; RMS just rejects pure silence
+        private const val MIN_WAKE_RMS = 3.0
 
         // English patterns that Vosk outputs when you say "सेडू" / "Sedu"
         // Free-form recognition — no grammar, match output with regex

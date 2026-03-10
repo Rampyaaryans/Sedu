@@ -26,7 +26,7 @@ class HistoryActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_history)
 
-        memory = SeduMemory(this)
+        memory = SeduMemory.getInstance(this)
         recycler = findViewById(R.id.historyRecycler)
         emptyText = findViewById(R.id.emptyText)
         val clearButton = findViewById<Button>(R.id.clearHistoryButton)

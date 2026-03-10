@@ -22,7 +22,7 @@ class VoiceEnrollActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "VoiceEnroll"
         private const val SAMPLE_RATE = 16000
-        private const val TOTAL_SAMPLES = 5
+        private const val TOTAL_SAMPLES = 6
         private const val RECORD_DURATION_MS = 2500L
     }
 
@@ -62,6 +62,7 @@ class VoiceEnrollActivity : AppCompatActivity() {
             instructionText.text = "Voice already enrolled.\nRe-record to update, or reset."
         } else {
             resetButton.visibility = View.GONE
+            instructionText.text = "Train SEDU on your voice.\nSay SEDU at different distances.\nFirst 3 close, last 3 from far."
         }
 
         updateUI()
@@ -79,7 +80,7 @@ class VoiceEnrollActivity : AppCompatActivity() {
             samples.clear()
             resetButton.visibility = View.GONE
             statusText.text = "Voice profile cleared."
-            instructionText.text = "Say SEDU clearly when you press Record.\nQuiet place, normal distance."
+            instructionText.text = "Train SEDU on your voice.\nSay SEDU at different distances.\nFirst 3 close, last 3 from far."
             updateUI()
         }
     }
@@ -97,9 +98,13 @@ class VoiceEnrollActivity : AppCompatActivity() {
             recordButton.isEnabled = true
             recordButton.visibility = View.VISIBLE
             if (count == 0 && statusText.text.isBlank()) {
-                instructionText.text = "Say SEDU clearly when you press Record.\nQuiet place, normal distance."
-            } else if (count > 0) {
-                instructionText.text = "Good! Say SEDU again."
+                instructionText.text = "Say SEDU clearly when you press Record.\nFirst 3 samples: hold phone close.\nLast 3 samples: step 2-3 meters away."
+            } else if (count in 1..2) {
+                instructionText.text = "Good! Say SEDU again (close to phone)."
+            } else if (count == 3) {
+                instructionText.text = "Now step 2-3 meters away.\nSay SEDU from there."
+            } else if (count > 3) {
+                instructionText.text = "Good! Say SEDU again (from distance)."
             }
         }
     }
@@ -168,12 +173,12 @@ class VoiceEnrollActivity : AppCompatActivity() {
                 val rms = computeRMS(trimmed)
                 Log.d(TAG, "Sample ${samples.size + 1}: ${trimmed.size} samples, RMS=$rms")
 
-                if (rms < 100) {
+                if (rms < 20) {
                     handler.post {
-                        statusText.text = "Too quiet! Speak louder."
+                        statusText.text = "Too quiet! Speak a bit louder."
                         isRecording = false
                         recordButton.isEnabled = true
-                        instructionText.text = "Say SEDU louder, closer to mic."
+                        instructionText.text = "Say SEDU a bit louder."
                     }
                     return@Thread
                 }

@@ -4,49 +4,53 @@
     android:layout_height="match_parent"
     android:background="@color/bg_main">
 
-    <!-- Animated gradient background view (programmatic) -->
+    <!-- Animated gradient background -->
     <View
         android:id="@+id/animatedBg"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <!-- Screen edge glow -->
+    <!-- Edge glow -->
     <View
         android:id="@+id/edgeGlow"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <!-- Content -->
+    <!-- Main content -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:gravity="center"
-        android:orientation="vertical"
-        android:padding="32dp">
+        android:gravity="center_horizontal"
+        android:orientation="vertical">
 
-        <!-- SEDU animated title -->
+        <!-- Top spacer to push title to ~30% -->
+        <View
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_weight="1.8" />
+
+        <!-- SEDU animated title (large hero text) -->
         <LinearLayout
             android:id="@+id/titleContainer"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:gravity="center"
-            android:layout_marginBottom="4dp">
+            android:gravity="center">
 
             <TextView
                 android:id="@+id/letterS"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="S"
-                android:textSize="72sp"
+                android:textSize="80sp"
                 android:textStyle="bold"
                 android:textColor="@color/text_dark"
                 android:alpha="0"
-                android:letterSpacing="0.15"
+                android:letterSpacing="0.12"
                 android:shadowColor="#4DA8E6CF"
                 android:shadowDx="0"
                 android:shadowDy="4"
-                android:shadowRadius="12"
+                android:shadowRadius="16"
                 android:fontFamily="sans-serif-medium" />
 
             <TextView
@@ -54,15 +58,15 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="E"
-                android:textSize="72sp"
+                android:textSize="80sp"
                 android:textStyle="bold"
                 android:textColor="@color/primary_dark"
                 android:alpha="0"
-                android:letterSpacing="0.15"
+                android:letterSpacing="0.12"
                 android:shadowColor="#4DA8E6CF"
                 android:shadowDx="0"
                 android:shadowDy="4"
-                android:shadowRadius="12"
+                android:shadowRadius="16"
                 android:fontFamily="sans-serif-medium" />
 
             <TextView
@@ -70,15 +74,15 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="D"
-                android:textSize="72sp"
+                android:textSize="80sp"
                 android:textStyle="bold"
                 android:textColor="@color/text_dark"
                 android:alpha="0"
-                android:letterSpacing="0.15"
+                android:letterSpacing="0.12"
                 android:shadowColor="#4DA8E6CF"
                 android:shadowDx="0"
                 android:shadowDy="4"
-                android:shadowRadius="12"
+                android:shadowRadius="16"
                 android:fontFamily="sans-serif-medium" />
 
             <TextView
@@ -86,15 +90,15 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="U"
-                android:textSize="72sp"
+                android:textSize="80sp"
                 android:textStyle="bold"
                 android:textColor="@color/primary_dark"
                 android:alpha="0"
-                android:letterSpacing="0.15"
+                android:letterSpacing="0.12"
                 android:shadowColor="#4DA8E6CF"
                 android:shadowDx="0"
                 android:shadowDy="4"
-                android:shadowRadius="12"
+                android:shadowRadius="16"
                 android:fontFamily="sans-serif-medium" />
         </LinearLayout>
 
@@ -103,77 +107,124 @@
             android:id="@+id/subtitleText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Voice Agent"
+            android:layout_marginTop="4dp"
+            android:text="Your Personal Voice Agent"
             android:textColor="@color/text_light"
-            android:textSize="16sp"
+            android:textSize="15sp"
+            android:fontFamily="sans-serif-light"
+            android:letterSpacing="0.1"
             android:alpha="0" />
 
-        <!-- Status -->
+        <!-- Status pill -->
         <TextView
             android:id="@+id/statusText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="48dp"
-            android:text="Say Sedu to activate"
+            android:layout_marginTop="32dp"
+            android:text="Say 'Sedu' to activate"
             android:textColor="@color/text_dark"
-            android:textSize="18sp"
+            android:textSize="16sp"
+            android:fontFamily="sans-serif"
+            android:background="@drawable/status_pill_bg"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
             android:alpha="0" />
 
-        <!-- Spacer -->
+        <!-- Middle spacer -->
         <View
             android:layout_width="0dp"
             android:layout_height="0dp"
-            android:layout_weight="1" />
+            android:layout_weight="2.2" />
 
-        <!-- Toggle button - minimal -->
-        <Button
-            android:id="@+id/toggleButton"
-            android:layout_width="200dp"
-            android:layout_height="56dp"
-            android:layout_marginBottom="12dp"
-            android:backgroundTint="@color/primary"
-            android:text="Start"
-            android:textColor="@color/text_dark"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:alpha="0" />
+        <!-- Bottom action area with card background -->
+        <LinearLayout
+            android:id="@+id/bottomCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center_horizontal"
+            android:background="@drawable/bottom_card_bg"
+            android:paddingTop="28dp"
+            android:paddingBottom="32dp"
+            android:paddingStart="28dp"
+            android:paddingEnd="28dp"
+            android:elevation="8dp">
 
-        <!-- Train Voice button -->
-        <Button
-            android:id="@+id/trainVoiceButton"
-            android:layout_width="200dp"
-            android:layout_height="44dp"
-            android:layout_marginBottom="12dp"
-            android:backgroundTint="@color/primary_dark"
-            android:text="Train My Voice"
-            android:textColor="#FFFFFF"
-            android:textSize="14sp"
-            android:alpha="0" />
+            <!-- Primary action: Start/Stop -->
+            <Button
+                android:id="@+id/toggleButton"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginBottom="12dp"
+                android:backgroundTint="@color/primary_dark"
+                android:text="Start Sedu"
+                android:textColor="#FFFFFF"
+                android:textSize="17sp"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-medium"
+                android:letterSpacing="0.04"
+                android:elevation="4dp"
+                android:stateListAnimator="@null"
+                android:alpha="0" />
 
-        <!-- View History button -->
-        <Button
-            android:id="@+id/historyButton"
-            android:layout_width="200dp"
-            android:layout_height="44dp"
-            android:layout_marginBottom="12dp"
-            android:backgroundTint="#5B6ABF"
-            android:text="View History"
-            android:textColor="#FFFFFF"
-            android:textSize="14sp"
-            android:alpha="0" />
+            <!-- Secondary actions row -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="10dp">
 
-        <!-- User Manual button -->
-        <Button
-            android:id="@+id/userManualButton"
-            android:layout_width="200dp"
-            android:layout_height="44dp"
-            android:layout_marginBottom="24dp"
-            android:backgroundTint="@color/text_light"
-            android:text="How to Use Sedu"
-            android:textColor="#FFFFFF"
-            android:textSize="14sp"
-            android:alpha="0" />
+                <Button
+                    android:id="@+id/trainVoiceButton"
+                    android:layout_width="0dp"
+                    android:layout_height="46dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="6dp"
+                    android:backgroundTint="@color/primary"
+                    android:text="Train Voice"
+                    android:textColor="@color/text_dark"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium"
+                    android:elevation="2dp"
+                    android:stateListAnimator="@null"
+                    android:alpha="0" />
+
+                <Button
+                    android:id="@+id/historyButton"
+                    android:layout_width="0dp"
+                    android:layout_height="46dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="6dp"
+                    android:backgroundTint="@color/primary"
+                    android:text="History"
+                    android:textColor="@color/text_dark"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium"
+                    android:elevation="2dp"
+                    android:stateListAnimator="@null"
+                    android:alpha="0" />
+            </LinearLayout>
+
+            <!-- How to use link -->
+            <TextView
+                android:id="@+id/userManualButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="How to Use Sedu"
+                android:textColor="@color/text_light"
+                android:textSize="14sp"
+                android:fontFamily="sans-serif"
+                android:paddingTop="8dp"
+                android:paddingBottom="4dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:alpha="0" />
+
+        </LinearLayout>
 
     </LinearLayout>
 

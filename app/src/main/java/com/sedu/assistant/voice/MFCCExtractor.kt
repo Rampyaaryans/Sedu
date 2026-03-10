@@ -90,24 +90,26 @@ class MFCCExtractor {
         return mfccs
     }
 
-    /** Compute mean MFCC vector across all frames. */
+    /** Compute mean MFCC vector across all frames (supports any dimension). */
     fun meanMFCC(mfccs: Array<FloatArray>): FloatArray {
-        if (mfccs.isEmpty()) return FloatArray(NUM_MFCC)
-        val mean = FloatArray(NUM_MFCC)
+        if (mfccs.isEmpty()) return FloatArray(0)
+        val dim = mfccs[0].size
+        val mean = FloatArray(dim)
         for (frame in mfccs) {
-            for (i in frame.indices) mean[i] += frame[i]
+            for (i in 0 until min(frame.size, dim)) mean[i] += frame[i]
         }
         val count = mfccs.size.toFloat()
         for (i in mean.indices) mean[i] /= count
         return mean
     }
 
-    /** Compute standard deviation of MFCC across all frames. */
+    /** Compute standard deviation of MFCC across all frames (supports any dimension). */
     fun stdMFCC(mfccs: Array<FloatArray>, mean: FloatArray): FloatArray {
-        if (mfccs.size < 2) return FloatArray(NUM_MFCC) { 1.0f }
-        val std = FloatArray(NUM_MFCC)
+        val dim = mean.size
+        if (mfccs.size < 2) return FloatArray(dim) { 1.0f }
+        val std = FloatArray(dim)
         for (frame in mfccs) {
-            for (i in frame.indices) {
+            for (i in 0 until min(frame.size, dim)) {
                 val diff = frame[i] - mean[i]
                 std[i] += diff * diff
             }
@@ -118,12 +120,67 @@ class MFCCExtractor {
         return std
     }
 
+    /**
+     * Extract MFCC + delta MFCC features (26-dimensional vectors).
+     * Delta MFCCs capture temporal dynamics of the voice — how it changes across frames.
+     * This significantly improves speaker discrimination over static MFCCs alone.
+     * Audio is amplitude-normalized before extraction so near-field and far-field produce
+     * consistent features for the same speaker.
+     */
+    fun extractWithDeltas(audioData: ShortArray): Array<FloatArray> {
+        val normalized = normalizeAudio(audioData)
+        val staticMFCCs = extract(normalized)
+        if (staticMFCCs.size < 3) return emptyArray()
+
+        val deltas = computeDeltas(staticMFCCs)
+
+        // Concatenate static + delta → 26-dimensional vectors
+        return Array(staticMFCCs.size) { i ->
+            FloatArray(NUM_MFCC * 2) { j ->
+                if (j < NUM_MFCC) staticMFCCs[i][j] else deltas[i][j - NUM_MFCC]
+            }
+        }
+    }
+
+    /**
+     * Normalize audio amplitude so peak is at ~80% of max.
+     * This ensures far-field (quiet) and near-field (loud) audio produce
+     * consistent MFCC features for the same speaker.
+     */
+    fun normalizeAudio(audio: ShortArray): ShortArray {
+        if (audio.isEmpty()) return audio
+        var maxAmp = 0
+        for (s in audio) {
+            val abs = abs(s.toInt())
+            if (abs > maxAmp) maxAmp = abs
+        }
+        if (maxAmp < 50) return audio // too quiet to normalize (pure silence)
+        val targetAmp = 26000 // ~80% of 32767
+        val scale = targetAmp.toFloat() / maxAmp
+        if (scale < 1.1f && scale > 0.9f) return audio // already at good level
+        return ShortArray(audio.size) { (audio[it] * scale).toInt().coerceIn(-32768, 32767).toShort() }
+    }
+
+    /**
+     * Compute delta (first derivative) of MFCC frame sequence.
+     * delta[t] = (mfcc[t+1] - mfcc[t-1]) / 2
+     */
+    private fun computeDeltas(mfccs: Array<FloatArray>): Array<FloatArray> {
+        val n = mfccs.size
+        return Array(n) { t ->
+            val prev = if (t > 0) mfccs[t - 1] else mfccs[0]
+            val next = if (t < n - 1) mfccs[t + 1] else mfccs[n - 1]
+            FloatArray(NUM_MFCC) { i -> (next[i] - prev[i]) / 2.0f }
+        }
+    }
+
     /** Cosine similarity between two vectors. Returns value in [-1, 1]. */
     fun cosineSimilarity(a: FloatArray, b: FloatArray): Float {
         var dot = 0.0f
         var normA = 0.0f
         var normB = 0.0f
-        for (i in a.indices) {
+        val minLen = min(a.size, b.size)
+        for (i in 0 until minLen) {
             dot += a[i] * b[i]
             normA += a[i] * a[i]
             normB += b[i] * b[i]

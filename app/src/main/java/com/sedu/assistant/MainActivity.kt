@@ -41,7 +41,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var subtitleText: TextView
     private lateinit var toggleButton: Button
     private lateinit var trainVoiceButton: Button
-    private lateinit var userManualButton: Button
+    private lateinit var userManualButton: TextView
     private lateinit var historyButton: Button
     private lateinit var letterS: TextView
     private lateinit var letterE: TextView
@@ -102,7 +102,7 @@ class MainActivity : AppCompatActivity() {
         subtitleText = findViewById(R.id.subtitleText)
         toggleButton = findViewById(R.id.toggleButton)
         trainVoiceButton = findViewById(R.id.trainVoiceButton)
-        userManualButton = findViewById(R.id.userManualButton)
+        userManualButton = findViewById<TextView>(R.id.userManualButton)
         historyButton = findViewById(R.id.historyButton)
         letterS = findViewById(R.id.letterS)
         letterE = findViewById(R.id.letterE)
@@ -176,20 +176,28 @@ class MainActivity : AppCompatActivity() {
             })
         }
 
-        // Phase 2: Fade in subtitle, status, buttons with slide up
+        // Phase 2: Fade in subtitle, status, and bottom card elements with slide up
         val fadeDelay = 1200L
-        val fadeViews = listOf(subtitleText, statusText, toggleButton, trainVoiceButton, historyButton, userManualButton)
+        val fadeViews = listOf<View>(subtitleText, statusText, toggleButton, trainVoiceButton, historyButton, userManualButton)
         fadeViews.forEachIndexed { i, v ->
             anims.add(ObjectAnimator.ofFloat(v, "alpha", 0f, 1f).apply {
                 duration = 500
-                startDelay = fadeDelay + (i * 120).toLong()
+                startDelay = fadeDelay + (i * 100).toLong()
             })
-            anims.add(ObjectAnimator.ofFloat(v, "translationY", 40f, 0f).apply {
-                duration = 500
-                startDelay = fadeDelay + (i * 120).toLong()
-                interpolator = DecelerateInterpolator()
+            anims.add(ObjectAnimator.ofFloat(v, "translationY", 50f, 0f).apply {
+                duration = 600
+                startDelay = fadeDelay + (i * 100).toLong()
+                interpolator = DecelerateInterpolator(1.5f)
             })
         }
+
+        // Bottom card slide up
+        val bottomCard = findViewById<View>(R.id.bottomCard)
+        anims.add(ObjectAnimator.ofFloat(bottomCard, "translationY", 200f, 0f).apply {
+            duration = 700
+            startDelay = fadeDelay
+            interpolator = DecelerateInterpolator(2f)
+        })
 
         animSet.playTogether(anims)
         animSet.start()
@@ -388,22 +396,22 @@ class MainActivity : AppCompatActivity() {
 
         if (isServiceRunning) {
             statusText.text = "Listening... say \"Sedu\""
-            subtitleText.text = if (enrolled) "Only YOUR voice activates Sedu" else "⚠ Train voice for owner-only activation"
-            toggleButton.text = "Stop"
+            subtitleText.text = if (enrolled) "Only your voice activates Sedu" else "Train voice for owner-only mode"
+            toggleButton.text = "Stop Sedu"
             toggleButton.backgroundTintList = ContextCompat.getColorStateList(this, R.color.red_stop)
         } else if (SeduService.isPassive) {
             statusText.text = "Sleeping — say \"Sedu\" to wake"
-            subtitleText.text = if (enrolled) "Owner voice will wake Sedu" else "⚠ Train voice first"
-            toggleButton.text = "Start"
-            toggleButton.backgroundTintList = ContextCompat.getColorStateList(this, R.color.primary)
+            subtitleText.text = if (enrolled) "Owner voice will wake Sedu" else "Train voice first"
+            toggleButton.text = "Start Sedu"
+            toggleButton.backgroundTintList = ContextCompat.getColorStateList(this, R.color.primary_dark)
         } else {
-            statusText.text = "Tap to start"
-            subtitleText.text = if (enrolled) "Voice trained ✓" else "⚠ Train your voice first!"
-            toggleButton.text = "Start"
-            toggleButton.backgroundTintList = ContextCompat.getColorStateList(this, R.color.primary)
+            statusText.text = "Tap Start to begin"
+            subtitleText.text = if (enrolled) "Voice trained" else "Train your voice first"
+            toggleButton.text = "Start Sedu"
+            toggleButton.backgroundTintList = ContextCompat.getColorStateList(this, R.color.primary_dark)
         }
 
-        trainVoiceButton.text = if (enrolled) "Retrain Voice" else "★ Train My Voice ★"
+        trainVoiceButton.text = if (enrolled) "Retrain Voice" else "Train Voice"
     }
 
     override fun onResume() {
@@ -413,7 +421,7 @@ class MainActivity : AppCompatActivity() {
 
         // If voice was just enrolled, update button text
         val vp = VoiceProfile(this)
-        trainVoiceButton.text = if (vp.isEnrolled()) "Retrain Voice" else "★ Train My Voice ★"
+        trainVoiceButton.text = if (vp.isEnrolled()) "Retrain Voice" else "Train Voice"
     }
 
     override fun onDestroy() {

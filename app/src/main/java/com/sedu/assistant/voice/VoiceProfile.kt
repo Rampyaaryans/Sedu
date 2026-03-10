@@ -17,7 +17,9 @@ class VoiceProfile(private val context: Context) {
         private const val KEY_STD_MFCC = "std_mfcc"
         private const val KEY_ENROLLED = "enrolled"
         private const val KEY_THRESHOLD = "threshold"
+        private const val KEY_PROFILE_VERSION = "profile_version"
         private const val DEFAULT_THRESHOLD = 0.72f
+        private const val CURRENT_PROFILE_VERSION = 2  // v2 = 26-dim (static + delta MFCCs)
     }
 
     private val mfccExtractor = MFCCExtractor()
@@ -36,13 +38,14 @@ class VoiceProfile(private val context: Context) {
     /**
      * Enroll from multiple audio samples.
      * Each sample is raw 16-bit PCM at 16kHz mono.
+     * Uses amplitude-normalized audio with delta MFCCs for robust far-field matching.
      */
     fun enroll(samples: List<ShortArray>) {
         Log.d(TAG, "Enrolling with ${samples.size} samples")
 
         val allMFCCs = mutableListOf<FloatArray>()
         for (sample in samples) {
-            val mfccs = mfccExtractor.extract(sample)
+            val mfccs = mfccExtractor.extractWithDeltas(sample)
             allMFCCs.addAll(mfccs)
         }
 
@@ -51,7 +54,7 @@ class VoiceProfile(private val context: Context) {
             return
         }
 
-        Log.d(TAG, "Extracted ${allMFCCs.size} MFCC frames from ${samples.size} samples")
+        Log.d(TAG, "Extracted ${allMFCCs.size} MFCC frames (${allMFCCs[0].size}-dim) from ${samples.size} samples")
 
         val mfccArray = allMFCCs.toTypedArray()
         meanMFCC = mfccExtractor.meanMFCC(mfccArray)
@@ -64,22 +67,22 @@ class VoiceProfile(private val context: Context) {
 
     /**
      * Verify if the given audio matches the enrolled voice.
-     * Uses combined mean + std MFCC similarity for better speaker discrimination.
+     * Uses amplitude-normalized delta MFCCs for robust far-field speaker verification.
      * Returns similarity score (0-1). Higher = more similar.
      */
     fun verify(audioData: ShortArray): Float {
         if (meanMFCC == null || stdMFCC == null) return 1.0f  // Not enrolled → accept all
 
-        // Check audio has actual speech (RMS energy)
+        // Check audio has actual speech (RMS energy) — lowered for far-field support
         var sumSq = 0.0
         for (s in audioData) sumSq += s.toDouble() * s.toDouble()
         val rms = Math.sqrt(sumSq / audioData.size.coerceAtLeast(1))
-        if (rms < 80.0) {
+        if (rms < 10.0) {
             Log.d(TAG, "Voice verification: audio too quiet (RMS=$rms), rejecting")
             return 0.0f
         }
 
-        val mfccs = mfccExtractor.extract(audioData)
+        val mfccs = mfccExtractor.extractWithDeltas(audioData)
         if (mfccs.isEmpty()) return 0.0f
 
         val testMean = mfccExtractor.meanMFCC(mfccs)
@@ -123,6 +126,7 @@ class VoiceProfile(private val context: Context) {
             editor.putString(KEY_STD_MFCC, floatArrayToJson(stdMFCC!!))
             editor.putFloat(KEY_THRESHOLD, threshold)
             editor.putBoolean(KEY_ENROLLED, true)
+            editor.putInt(KEY_PROFILE_VERSION, CURRENT_PROFILE_VERSION)
         } else {
             editor.putBoolean(KEY_ENROLLED, false)
         }
@@ -133,13 +137,20 @@ class VoiceProfile(private val context: Context) {
     private fun load() {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         if (prefs.getBoolean(KEY_ENROLLED, false)) {
+            val version = prefs.getInt(KEY_PROFILE_VERSION, 1)
+            if (version < CURRENT_PROFILE_VERSION) {
+                // Old profile format (13-dim) incompatible with new (26-dim delta MFCCs)
+                Log.w(TAG, "Voice profile version $version is outdated (need $CURRENT_PROFILE_VERSION), clearing for re-enrollment")
+                clear()
+                return
+            }
             val meanJson = prefs.getString(KEY_MEAN_MFCC, null)
             val stdJson = prefs.getString(KEY_STD_MFCC, null)
             if (meanJson != null && stdJson != null) {
                 meanMFCC = jsonToFloatArray(meanJson)
                 stdMFCC = jsonToFloatArray(stdJson)
                 threshold = prefs.getFloat(KEY_THRESHOLD, DEFAULT_THRESHOLD)
-                Log.d(TAG, "Voice profile loaded, threshold=$threshold")
+                Log.d(TAG, "Voice profile loaded v$version, ${meanMFCC?.size}-dim, threshold=$threshold")
             }
         }
     }

@@ -11,7 +11,7 @@ import java.io.File
  * Stores conversation turns in JSON file for persistent memory across sessions.
  * Provides recent context (last N turns) and all-time summary for AI prompts.
  */
-class SeduMemory(private val context: Context) {
+class SeduMemory private constructor(context: Context) {
 
     companion object {
         private const val TAG = "SeduMemory"
@@ -19,6 +19,15 @@ class SeduMemory(private val context: Context) {
         private const val MAX_CONVERSATIONS = 100 // Keep last 100 turns
         private const val RECENT_COUNT = 8 // Inject last 8 turns into prompt
         private const val SUMMARY_COUNT = 30 // Summarize from last 30 turns
+
+        @Volatile
+        private var instance: SeduMemory? = null
+
+        fun getInstance(context: Context): SeduMemory {
+            return instance ?: synchronized(this) {
+                instance ?: SeduMemory(context.applicationContext).also { instance = it }
+            }
+        }
     }
 
     private val memoryFile: File = File(context.filesDir, MEMORY_FILE)

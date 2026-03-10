@@ -55,6 +55,11 @@ class SeduTTS(context: Context) {
     // Callback map — set listener ONCE, dispatch by utteranceId
     private val completionCallbacks = java.util.concurrent.ConcurrentHashMap<String, () -> Unit>()
 
+    /** True when TTS is actively speaking — used for interrupt detection */
+    @Volatile
+    var isSpeaking = false
+        private set
+
     init {
         tts = TextToSpeech(context) { status ->
             if (status == TextToSpeech.SUCCESS) {
@@ -68,12 +73,16 @@ class SeduTTS(context: Context) {
 
                 // Set listener ONCE — never overwrite
                 tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-                    override fun onStart(utteranceId: String?) {}
+                    override fun onStart(utteranceId: String?) {
+                        isSpeaking = true
+                    }
                     override fun onDone(utteranceId: String?) {
+                        isSpeaking = false
                         utteranceId?.let { completionCallbacks.remove(it)?.invoke() }
                     }
                     @Deprecated("Deprecated")
                     override fun onError(utteranceId: String?) {
+                        isSpeaking = false
                         utteranceId?.let { completionCallbacks.remove(it)?.invoke() }
                     }
                 })
@@ -203,6 +212,7 @@ class SeduTTS(context: Context) {
 
     fun stop() {
         tts?.stop()
+        isSpeaking = false
         completionCallbacks.clear()
     }
 
@@ -211,6 +221,7 @@ class SeduTTS(context: Context) {
         tts?.shutdown()
         tts = null
         isReady = false
+        isSpeaking = false
         completionCallbacks.clear()
     }
 }

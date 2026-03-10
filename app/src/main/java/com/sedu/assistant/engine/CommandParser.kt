@@ -52,11 +52,11 @@ class CommandParser {
         // Check greeting (only short phrases)
         if (isGreeting(text)) return SeduCommand.Unknown("greeting")
 
-        // Try structured parsing
-        return parseCall(lower)
+        // Try structured parsing — OpenApp FIRST to prevent "open messages" → SMS
+        return parseOpenApp(lower)
+            ?: parseCall(lower)
             ?: parseSms(lower)
             ?: parseWhatsApp(lower)
-            ?: parseOpenApp(lower)
             ?: parseDeviceControl(lower, text)
             ?: parseMedia(lower)
             ?: parseInfo(lower, text)
@@ -130,13 +130,17 @@ class CommandParser {
             }
         }
 
-        // Direct app name detection
+        // Direct app name detection — standalone or with "khol"/"open"
         val appNames = listOf("youtube", "instagram", "facebook", "whatsapp", "telegram",
             "twitter", "snapchat", "chrome", "gmail", "camera", "gallery", "photos",
             "spotify", "netflix", "calculator", "calendar", "clock", "maps", "settings",
-            "amazon", "flipkart", "paytm", "gpay", "phonepe", "zomato", "swiggy")
+            "amazon", "flipkart", "paytm", "gpay", "phonepe", "zomato", "swiggy",
+            "messages", "messaging", "sms", "dialer", "phone", "contacts",
+            "drive", "keep", "meet", "files", "recorder", "notes")
         for (app in appNames) {
-            if (lower == app || lower == "$app khol" || lower == "$app open") {
+            if (lower == app || lower == "$app khol" || lower == "$app kholo" ||
+                lower == "$app open" || lower == "$app kholna" ||
+                lower == "$app chalu kar" || lower == "$app chalu karo") {
                 return SeduCommand.OpenApp(app)
             }
         }

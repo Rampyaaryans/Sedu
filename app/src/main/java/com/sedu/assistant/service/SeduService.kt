@@ -113,7 +113,7 @@ class SeduService : Service() {
         Log.d(TAG, "Gemini AI brain initialized, hasKey=${geminiBrain?.hasApiKey()}")
 
         // Initialize RAG memory system
-        seduMemory = SeduMemory(this)
+        seduMemory = SeduMemory.getInstance(this)
         geminiBrain?.setMemory(seduMemory!!)
         Log.d(TAG, "Memory system initialized")
 
@@ -304,16 +304,16 @@ class SeduService : Service() {
         currentState = SeduServiceState.LISTENING_COMMAND
         updateNotification("Sun raha hoon...")
 
-        // Wait 400ms for mic to fully release from WakeWordEngine, then speak greeting
+        // Wait 250ms for mic to fully release from WakeWordEngine, then speak greeting
         Handler(Looper.getMainLooper()).postDelayed({
             if (!inConversation) { endConversation(); return@postDelayed }
             seduTTS?.speak("राम राम भाई, क्या मदद चाहिए?") {
-                // TTS done callback — marshal to main thread
+                // TTS done callback — marshal to main thread, start listening immediately
                 Handler(Looper.getMainLooper()).post {
                     if (inConversation) startCommandListening()
                 }
             }
-        }, 400)
+        }, 250)
     }
 
     /**
@@ -349,9 +349,9 @@ class SeduService : Service() {
             seduTTS?.speak("हाँ बोलो भाई?") {
                 Handler(Looper.getMainLooper()).postDelayed({
                     if (inConversation) startGoogleSpeechRecognizer()
-                }, 300)
+                }, 100)
             }
-        }, 400)
+        }, 250)
     }
 
     private fun startCommandListening() {
@@ -368,16 +368,18 @@ class SeduService : Service() {
         wakeWordEngine?.stop()
         wakeWordEngine = null
 
-        // Always create fresh SpeechEngine to avoid stale state
-        speechEngine?.stop()
-        speechEngine = null
+        // Reuse existing SpeechEngine if available — avoids audible mic restart
+        if (speechEngine != null) {
+            speechEngine?.restartForNextCommand()
+            return
+        }
 
-        // 300ms delay for mic release, then start Google recognizer on main thread
+        // First time or after error — create fresh SpeechEngine
         Handler(Looper.getMainLooper()).postDelayed({
             if (inConversation) {
                 startGoogleSpeechRecognizer()
             }
-        }, 300)
+        }, 100)
     }
 
     private val WAKE_WORDS_IN_SPEECH = listOf("sedu", "said you", "say do", "see do", "se do", "said do", "so do")
@@ -498,7 +500,8 @@ class SeduService : Service() {
             cmd is SeduCommand.TakePhoto || cmd is SeduCommand.ReadScreen ||
             cmd is SeduCommand.SetAlarm || cmd is SeduCommand.SetTimer ||
             cmd is SeduCommand.TakeScreenshot || cmd is SeduCommand.ReadNotifications ||
-            cmd is SeduCommand.Goodbye || cmd is SeduCommand.OpenSettings
+            cmd is SeduCommand.Goodbye || cmd is SeduCommand.OpenSettings ||
+            cmd is SeduCommand.OpenApp  // Apps open instantly — no AI needed
     }
 
     private fun executeCommand(command: SeduCommand, aiReply: String?) {
@@ -513,37 +516,28 @@ class SeduService : Service() {
         // AskUser — Gemini wants to clarify something, speak question then listen for answer
         if (command is SeduCommand.AskUser) {
             val reply = aiReply ?: "बताओ क्या चाहिए?"
-            seduTTS?.speak(reply) {
-                // After asking, listen for user's answer
-                if (inConversation) startCommandListening() else endConversation()
-            }
+            speakThenListen(reply)
             return
         }
 
         // Greeting from AI
         if (command is SeduCommand.Unknown && command.rawText.startsWith("greeting")) {
             val reply = aiReply ?: "राम राम भाई, क्या मदद चाहिए?"
-            seduTTS?.speak(reply) {
-                if (inConversation) startCommandListening() else endConversation()
-            }
+            speakThenListen(reply)
             return
         }
 
         // Chat response from AI
         if (command is SeduCommand.Unknown && command.rawText.startsWith("chat:")) {
             val reply = aiReply ?: "बोलो, मैं सुन रहा हूँ"
-            seduTTS?.speak(reply) {
-                if (inConversation) startCommandListening() else endConversation()
-            }
+            speakThenListen(reply)
             return
         }
 
         // Any remaining Unknown — still give a useful response
         if (command is SeduCommand.Unknown) {
             val reply = aiReply ?: "एक बार और बोलो, ध्यान से सुनता हूँ"
-            seduTTS?.speak(reply) {
-                if (inConversation) startCommandListening() else endConversation()
-            }
+            speakThenListen(reply)
             return
         }
 
@@ -560,6 +554,25 @@ class SeduService : Service() {
         } else {
             executor.execute(command, tts) {
                 if (inConversation) startCommandListening() else endConversation()
+            }
+        }
+    }
+
+    /**
+     * Speak reply fully, then start listening. No simultaneous mic — avoids feedback loop.
+     * Mic stays on after TTS finishes until user speaks or timeout.
+     */
+    private fun speakThenListen(reply: String) {
+        currentState = SeduServiceState.SPEAKING
+        updateNotification("Bol raha hoon...")
+        seduTTS?.speak(reply) {
+            // TTS finished — now start mic on main thread
+            Handler(Looper.getMainLooper()).post {
+                if (inConversation) {
+                    startCommandListening()
+                } else {
+                    endConversation()
+                }
             }
         }
     }

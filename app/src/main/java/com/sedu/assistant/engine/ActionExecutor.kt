@@ -347,22 +347,30 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
             "हॉटस्टार" to "in.startv.hotstar",
             "टेलीग्राम" to "org.telegram.messenger",
             "telegram" to "org.telegram.messenger",
+            // SMS / Messaging
+            "sms" to "com.google.android.apps.messaging",
+            "messaging" to "com.google.android.apps.messaging",
+            "message" to "com.google.android.apps.messaging",
+            "message app" to "com.google.android.apps.messaging",
+            "sms app" to "com.google.android.apps.messaging",
         )
 
-        val lowerName = appName.lowercase()
+        val lowerName = appName.lowercase().trim()
         val knownPkg = knownApps[lowerName]
 
         if (knownPkg != null) {
-            val launched = openAppByPackage(knownPkg)
-            if (launched) {
-                tts.speak(aiReply ?: "$appName खोल रहा हूँ") { onComplete() }
-            } else {
-                tts.speak("$appName फोन में नहीं है") { onComplete() }
+            Log.d(TAG, "openApp: '$lowerName' → known package '$knownPkg'")
+            // Speak first, then launch — user hears confirmation even if activity takes focus
+            tts.speak(aiReply ?: "$appName खोल रहा हूँ") {
+                val launched = launchPackage(knownPkg)
+                Log.d(TAG, "openApp: launchPackage('$knownPkg') result=$launched")
+                onComplete()
             }
             return
         }
 
         // Search launchable apps by label (uses <queries> instead of QUERY_ALL_PACKAGES)
+        Log.d(TAG, "openApp: '$lowerName' not in knownApps, searching installed apps...")
         val pm = context.packageManager
         val mainIntent = Intent(Intent.ACTION_MAIN, null).addCategory(Intent.CATEGORY_LAUNCHER)
         val resolveInfos = pm.queryIntentActivities(mainIntent, 0)
@@ -371,34 +379,71 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
         }
 
         if (match != null) {
-            val intent = pm.getLaunchIntentForPackage(match.activityInfo.packageName)
-            if (intent != null) {
-                tts.speak(aiReply ?: "$appName खोल रहा हूँ") {
-                    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                    context.startActivity(intent)
-                    onComplete()
-                }
-            } else {
-                tts.speak("$appName खुल नहीं रहा।") { onComplete() }
+            val pkg = match.activityInfo.packageName
+            Log.d(TAG, "openApp: fuzzy match '$appName' → '$pkg'")
+            tts.speak(aiReply ?: "$appName खोल रहा हूँ") {
+                launchPackage(pkg)
+                onComplete()
             }
         } else {
+            Log.w(TAG, "openApp: '$appName' not found on device")
             tts.speak("$appName फ़ोन में नहीं मिला।") { onComplete() }
         }
     }
 
-    private fun openAppByPackage(packageName: String): Boolean {
-        return try {
+    /**
+     * Robust app launcher with multiple strategies for Android 14+/15 compatibility.
+     * Strategy 1: getLaunchIntentForPackage with full flags
+     * Strategy 2: Manual MAIN/LAUNCHER intent with explicit component
+     */
+    private fun launchPackage(packageName: String): Boolean {
+        // Strategy 1: getLaunchIntentForPackage (standard approach)
+        try {
             val intent = context.packageManager.getLaunchIntentForPackage(packageName)
             if (intent != null) {
-                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                intent.addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
+                )
+                Log.d(TAG, "launchPackage: Strategy 1 → $packageName")
                 context.startActivity(intent)
-                true
-            } else false
+                return true
+            }
+            Log.w(TAG, "launchPackage: getLaunchIntentForPackage returned null for $packageName")
         } catch (e: Exception) {
-            Log.e(TAG, "Open app error: $packageName", e)
-            false
+            Log.e(TAG, "launchPackage: Strategy 1 failed for $packageName", e)
         }
+
+        // Strategy 2: Manual MAIN/LAUNCHER with explicit component name
+        try {
+            val mainIntent = Intent(Intent.ACTION_MAIN).apply {
+                addCategory(Intent.CATEGORY_LAUNCHER)
+                `package` = packageName
+                addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
+                )
+            }
+            val activities = context.packageManager.queryIntentActivities(mainIntent, 0)
+            if (activities.isNotEmpty()) {
+                mainIntent.setClassName(packageName, activities[0].activityInfo.name)
+                Log.d(TAG, "launchPackage: Strategy 2 → $packageName/${activities[0].activityInfo.name}")
+                context.startActivity(mainIntent)
+                return true
+            }
+            Log.w(TAG, "launchPackage: No LAUNCHER activities for $packageName")
+        } catch (e: Exception) {
+            Log.e(TAG, "launchPackage: Strategy 2 failed for $packageName", e)
+        }
+
+        Log.e(TAG, "launchPackage: ALL strategies failed for $packageName")
+        return false
     }
+
+    /** Convenience for places that still call by package name directly */
+    private fun openAppByPackage(packageName: String): Boolean = launchPackage(packageName)
 
     private fun openSettings(setting: String, tts: SeduTTS, aiReply: String?, onComplete: () -> Unit) {
         val action = when (setting.lowercase()) {
