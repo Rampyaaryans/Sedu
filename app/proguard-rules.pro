@@ -1,4 +1,5 @@
 # Sedu ProGuard Rules
+# Using proguard-android.txt (non-optimize) so Log calls are NOT stripped
 
 # Vosk speech recognition
 -keep class org.vosk.** { *; }

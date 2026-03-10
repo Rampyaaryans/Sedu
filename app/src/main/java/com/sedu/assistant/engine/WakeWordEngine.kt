@@ -32,8 +32,8 @@ class WakeWordEngine(
         private const val SAMPLE_RATE = 16000
         private const val BUFFER_SIZE = 32000 // 2 seconds at 16kHz
 
-        // Minimum RMS energy — very low to not miss anything
-        private const val MIN_WAKE_RMS = 80.0
+        // Minimum RMS energy — ambient noise is ~5-8 RMS, speech is ~50 RMS
+        private const val MIN_WAKE_RMS = 15.0
 
         // English patterns that Vosk outputs when you say "सेडू" / "Sedu"
         // Free-form recognition — no grammar, match output with regex
@@ -49,6 +49,10 @@ class WakeWordEngine(
             Regex("\\bso\\s*d[uo]o?\\b", RegexOption.IGNORE_CASE),           // so do, so due
             Regex("\\bsat?\\s*d[uo]o?\\b", RegexOption.IGNORE_CASE),         // sat do, sa du
             Regex("\\bs[ae]d[uo]\\b", RegexOption.IGNORE_CASE),              // sadu, sedu joined
+            Regex("\\bhe[ea]?r[eo]?\\b", RegexOption.IGNORE_CASE),           // here, hear, hero — Vosk maps "Sedu" → "here"
+            Regex("\\bhe\\s*d[uo]o?\\b", RegexOption.IGNORE_CASE),           // he do, he due
+            Regex("\\bsee\\s*[dt](oo|[uo])\\b", RegexOption.IGNORE_CASE),   // see do, see too, see tu
+            Regex("\\bsee\\s*the\\b", RegexOption.IGNORE_CASE),              // see the
         )
 
         // Hindi patterns — what Hindi Vosk model outputs for "सेडू" sound
@@ -145,7 +149,7 @@ class WakeWordEngine(
                                 if (enFinal) {
                                     val text = extractFinalText(engRecognizer?.result ?: "")
                                     if (text.isNotEmpty()) {
-                                        Log.d(TAG, "EN final: '$text'")
+                                        Log.d(TAG, "EN heard: '$text' (RMS=$rms)")
                                         if (matchesEnPattern(text) && rms >= MIN_WAKE_RMS) {
                                             triggerWakeWord("EN-final:'$text'", rms)
                                             return@Thread
@@ -154,6 +158,9 @@ class WakeWordEngine(
                                 } else {
                                     // Check partial results too — faster detection
                                     val partial = extractPartialText(engRecognizer?.partialResult ?: "")
+                                    if (partial.isNotEmpty()) {
+                                        Log.v(TAG, "EN partial: '$partial'")
+                                    }
                                     if (partial.length >= 4 && matchesEnPattern(partial) && rms >= MIN_WAKE_RMS) {
                                         Log.d(TAG, "EN partial match: '$partial'")
                                         triggerWakeWord("EN-partial:'$partial'", rms)
@@ -167,7 +174,7 @@ class WakeWordEngine(
                                     if (hiFinal) {
                                         val text = extractFinalText(hinRecognizer?.result ?: "")
                                         if (text.isNotEmpty()) {
-                                            Log.d(TAG, "HI final: '$text'")
+                                            Log.d(TAG, "HI heard: '$text' (RMS=$rms)")
                                             if (matchesHiPattern(text) && rms >= MIN_WAKE_RMS) {
                                                 triggerWakeWord("HI-final:'$text'", rms)
                                                 return@Thread
@@ -175,6 +182,9 @@ class WakeWordEngine(
                                         }
                                     } else {
                                         val partial = extractPartialText(hinRecognizer?.partialResult ?: "")
+                                        if (partial.isNotEmpty()) {
+                                            Log.v(TAG, "HI partial: '$partial'")
+                                        }
                                         if (partial.length >= 2 && matchesHiPattern(partial) && rms >= MIN_WAKE_RMS) {
                                             Log.d(TAG, "HI partial match: '$partial'")
                                             triggerWakeWord("HI-partial:'$partial'", rms)
