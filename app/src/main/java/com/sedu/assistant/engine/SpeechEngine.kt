@@ -37,8 +37,8 @@ class SpeechEngine(
 
     companion object {
         private const val TAG = "SpeechEngine"
-        private const val MAX_RETRIES = 3  // More retries for mic contention recovery
-        private const val SPEECH_TIMEOUT_MS = 35_000L  // Extended timeout when user is speaking
+        private const val MAX_RETRIES = 5  // More retries for mic contention recovery
+        private const val SPEECH_TIMEOUT_MS = 45_000L  // Extended timeout when user is speaking
     }
 
     interface SpeechCallback {
@@ -64,10 +64,10 @@ class SpeechEngine(
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
             putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context.packageName)
-            // PATIENT silence detection — let user speak slowly, like GPT voice mode
-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 4000L)
-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 3500L)
-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 3000L)
+            // PATIENT silence detection — let user finish full sentences
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 6000L)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 5000L)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 4000L)
             // VOICE_RECOGNITION audio source
             putExtra("android.speech.extra.AUDIO_SOURCE", 6)
             if (biasNames.isNotEmpty()) {
@@ -83,7 +83,7 @@ class SpeechEngine(
      * Start listening. Mutes system sounds to suppress Google beep,
      * creates a fresh recognizer, and starts.
      */
-    fun startListening(timeoutMs: Long = 20_000) {
+    fun startListening(timeoutMs: Long = 30_000) {
         if (isListening) return
         isStopped = false
         isListening = true

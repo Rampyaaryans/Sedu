@@ -579,7 +579,7 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
     // ==================== MEDIA & NAVIGATION ====================
 
     private fun playMusic(query: String, tts: SeduTTS, aiReply: String?, onComplete: () -> Unit) {
-        tts.speak(aiReply ?: "$query chala raha hoon") {
+        tts.speak(aiReply ?: "$query चला रहा हूँ") {
             var played = false
             val bestApp = findBestMusicApp()
 
@@ -754,7 +754,7 @@ class ActionExecutor(private val context: Context, private val geminiBrain: Gemi
     }
 
     private fun navigate(destination: String, tts: SeduTTS, aiReply: String?, onComplete: () -> Unit, origin: String = "") {
-        tts.speak(aiReply ?: "$destination ka direction deta hoon") {
+        tts.speak(aiReply ?: "$destination का रास्ता दिखाता हूँ") {
             try {
                 if (origin.isNotBlank() && origin.lowercase() != "current location" && origin.lowercase() != "meri location") {
                     // Origin + Destination: open Google Maps directions between two points

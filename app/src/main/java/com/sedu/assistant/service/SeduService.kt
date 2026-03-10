@@ -430,11 +430,11 @@ class SeduService : Service() {
                 speechEngine = null
                 speechErrorCount++
                 if (speechErrorCount <= 1 && inConversation) {
-                    seduTTS?.speak("Sunne mein thodi dikkat aayi, dobara koshish karta hoon") {
+                    seduTTS?.speak("सुनने में थोड़ी दिक्कत आई, दोबारा कोशिश करता हूँ") {
                         if (inConversation) startCommandListening()
                     }
                 } else {
-                    seduTTS?.speak("Thodi dikkat aa rahi hai") {
+                    seduTTS?.speak("थोड़ी दिक्कत आ रही है") {
                         endConversation()
                     }
                 }

@@ -159,6 +159,11 @@ class SeduMemory(private val context: Context) {
         }
     }
 
+    /** Get all conversation turns for history display */
+    fun getAllConversations(): List<ConversationTurn> {
+        return conversations.toList()
+    }
+
     /** Clear all memory */
     fun clear() {
         conversations.clear()

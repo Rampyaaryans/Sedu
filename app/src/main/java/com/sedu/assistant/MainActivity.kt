@@ -42,6 +42,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var toggleButton: Button
     private lateinit var trainVoiceButton: Button
     private lateinit var userManualButton: Button
+    private lateinit var historyButton: Button
     private lateinit var letterS: TextView
     private lateinit var letterE: TextView
     private lateinit var letterD: TextView
@@ -102,6 +103,7 @@ class MainActivity : AppCompatActivity() {
         toggleButton = findViewById(R.id.toggleButton)
         trainVoiceButton = findViewById(R.id.trainVoiceButton)
         userManualButton = findViewById(R.id.userManualButton)
+        historyButton = findViewById(R.id.historyButton)
         letterS = findViewById(R.id.letterS)
         letterE = findViewById(R.id.letterE)
         letterD = findViewById(R.id.letterD)
@@ -127,6 +129,10 @@ class MainActivity : AppCompatActivity() {
 
         userManualButton.setOnClickListener {
             startActivity(Intent(this, UserManualActivity::class.java))
+        }
+
+        historyButton.setOnClickListener {
+            startActivity(Intent(this, HistoryActivity::class.java))
         }
     }
 
@@ -172,7 +178,7 @@ class MainActivity : AppCompatActivity() {
 
         // Phase 2: Fade in subtitle, status, buttons with slide up
         val fadeDelay = 1200L
-        val fadeViews = listOf(subtitleText, statusText, toggleButton, trainVoiceButton, userManualButton)
+        val fadeViews = listOf(subtitleText, statusText, toggleButton, trainVoiceButton, historyButton, userManualButton)
         fadeViews.forEachIndexed { i, v ->
             anims.add(ObjectAnimator.ofFloat(v, "alpha", 0f, 1f).apply {
                 duration = 500
