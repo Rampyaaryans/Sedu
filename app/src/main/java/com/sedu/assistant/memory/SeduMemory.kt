@@ -17,8 +17,9 @@ class SeduMemory private constructor(context: Context) {
         private const val TAG = "SeduMemory"
         private const val MEMORY_FILE = "sedu_memory.json"
         private const val MAX_CONVERSATIONS = 100 // Keep last 100 turns
-        private const val RECENT_COUNT = 6 // Inject last 6 turns into prompt
-        private const val SUMMARY_COUNT = 20 // Summarize from last 20 turns
+        private const val RECENT_COUNT = 5 // Inject last 5 turns into prompt
+        private const val SUMMARY_COUNT = 16 // Summarize from last 16 turns
+        private const val PROMPT_CHAR_BUDGET = 1400
 
         @Volatile
         private var instance: SeduMemory? = null
@@ -82,7 +83,7 @@ class SeduMemory private constructor(context: Context) {
             sb.appendLine("RECENT CONVERSATIONS (latest ${recent.size}):")
             recent.forEach { turn ->
                 val timeAgo = getTimeAgo(turn.timestamp)
-                sb.appendLine("- [$timeAgo] User: \"${turn.userText}\" → You did: ${turn.aiAction}, said: \"${turn.aiReply}\"")
+                sb.appendLine("- [$timeAgo] U: \"${turn.userText.take(90)}\" → A: ${turn.aiAction}, \"${turn.aiReply.take(80)}\"")
             }
         }
 
@@ -93,8 +94,8 @@ class SeduMemory private constructor(context: Context) {
 
         if (older.isNotEmpty()) {
             sb.appendLine("OLDER TOPICS (summary): ")
-            val topics = older.map { "${it.aiAction}(${it.userText.take(30)})" }
-                .distinct().take(15)
+            val topics = older.map { "${it.aiAction}(${it.userText.take(22)})" }
+                .distinct().take(10)
             sb.appendLine(topics.joinToString(", "))
         }
 
@@ -103,7 +104,7 @@ class SeduMemory private constructor(context: Context) {
         sb.appendLine("- User ke preferences yaad rakho (e.g., favourite songs, contacts they call often).")
         sb.appendLine("- If user says 'phir se karo' or 'wahi' — repeat the last relevant action.")
 
-        return sb.toString()
+        return sb.toString().take(PROMPT_CHAR_BUDGET)
     }
 
     /** Get frequently used actions/contacts for smarter defaults */

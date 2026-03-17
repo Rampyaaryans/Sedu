@@ -13,9 +13,11 @@ import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.Callable
+import java.util.concurrent.ExecutorCompletionService
 import java.util.concurrent.Executors
+import java.util.concurrent.Future
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Quad AI brain: Groq → Mistral → OpenAI → Gemini.
@@ -147,7 +149,7 @@ EXAMPLES:
     private var groqKey: String? = BuildConfig.GROQ_API_KEY.ifBlank { null }
     private var mistralKey: String? = BuildConfig.MISTRAL_API_KEY.ifBlank { null }
     private var openaiKey: String? = BuildConfig.OPENAI_API_KEY.ifBlank { null }
-    @Volatile private var activeConnection: HttpURLConnection? = null
+    private val activeConnections = ConcurrentHashMap.newKeySet<HttpURLConnection>()
     private var memory: SeduMemory? = null
     private val webSearcher = WebSearcher()
     private var userSalutation: String = "भाई"
@@ -187,8 +189,10 @@ EXAMPLES:
 
     /** Cancel any active HTTP request (called from interruptAll) */
     fun cancelActiveRequest() {
-        try { activeConnection?.disconnect() } catch (_: Exception) {}
-        activeConnection = null
+        activeConnections.toList().forEach {
+            try { it.disconnect() } catch (_: Exception) {}
+        }
+        activeConnections.clear()
     }
 
     private var contactNames: String = ""
@@ -312,34 +316,28 @@ EXAMPLES:
         if (tasks.isEmpty()) return null
 
         val executor = Executors.newFixedThreadPool(tasks.size)
-        val done = AtomicBoolean(false)
+        val completionService = ExecutorCompletionService<AIResponse?>(executor)
+        val futures = mutableListOf<Future<AIResponse?>>()
         return try {
-            val futures = tasks.map { task ->
-                executor.submit<AIResponse?> {
-                    if (done.get()) return@submit null
-                    val result = task.call()
-                    if (result != null) done.set(true)
-                    result
-                }
+            tasks.forEach { task ->
+                futures += completionService.submit(task)
             }
 
-            val start = System.currentTimeMillis()
-            val timeoutMs = 9000L
-            var winner: AIResponse? = null
-            while (System.currentTimeMillis() - start < timeoutMs && winner == null) {
-                for (f in futures) {
-                    if (!f.isDone) continue
-                    try {
-                        val candidate = f.get()
-                        if (candidate != null) {
-                            winner = candidate
-                            break
+            repeat(futures.size) {
+                val completed = completionService.poll(9, TimeUnit.SECONDS) ?: return null
+                try {
+                    val candidate = completed.get()
+                    if (candidate != null) {
+                        futures.forEach { future ->
+                            if (future != completed) future.cancel(true)
                         }
-                    } catch (_: Exception) {}
+                        return candidate
+                    }
+                } catch (_: Exception) {
+                    // Ignore failed backend and wait for the next one.
                 }
-                if (winner == null) Thread.sleep(25)
             }
-            winner
+            null
         } finally {
             executor.shutdownNow()
             try { executor.awaitTermination(150, TimeUnit.MILLISECONDS) } catch (_: Exception) {}
@@ -353,12 +351,12 @@ EXAMPLES:
         var connection: HttpURLConnection? = null
         try {
             connection = URL(apiUrl).openConnection() as HttpURLConnection
-            activeConnection = connection
+            activeConnections += connection
             connection.requestMethod = "POST"
             connection.setRequestProperty("Content-Type", "application/json")
             connection.setRequestProperty("Authorization", "Bearer $apiKey")
-            connection.connectTimeout = 5000
-            connection.readTimeout = 8000
+            connection.connectTimeout = 3000
+            connection.readTimeout = 6500
             connection.doOutput = true
 
             val requestBody = JSONObject().apply {
@@ -402,7 +400,7 @@ EXAMPLES:
             return null
         } finally {
             try { connection?.disconnect() } catch (_: Exception) {}
-            activeConnection = null
+            if (connection != null) activeConnections.remove(connection)
         }
     }
 
@@ -438,11 +436,11 @@ EXAMPLES:
         var connection: HttpURLConnection? = null
         try {
             connection = URL("$GEMINI_URL?key=$geminiKey").openConnection() as HttpURLConnection
-            activeConnection = connection
+            activeConnections += connection
             connection.requestMethod = "POST"
             connection.setRequestProperty("Content-Type", "application/json")
-            connection.connectTimeout = 5000
-            connection.readTimeout = 8000
+            connection.connectTimeout = 3000
+            connection.readTimeout = 6500
             connection.doOutput = true
 
             val requestBody = JSONObject().apply {
@@ -488,7 +486,7 @@ EXAMPLES:
             return null
         } finally {
             try { connection?.disconnect() } catch (_: Exception) {}
-            activeConnection = null
+            if (connection != null) activeConnections.remove(connection)
         }
     }
 
@@ -635,12 +633,12 @@ Summarize what's on the screen in 2-3 SHORT sentences in casual Hindi. Focus on 
         var connection: HttpURLConnection? = null
         try {
             connection = URL(apiUrl).openConnection() as HttpURLConnection
-            activeConnection = connection
+            activeConnections += connection
             connection.requestMethod = "POST"
             connection.setRequestProperty("Content-Type", "application/json")
             connection.setRequestProperty("Authorization", "Bearer $apiKey")
-            connection.connectTimeout = 5000
-            connection.readTimeout = 8000
+            connection.connectTimeout = 3000
+            connection.readTimeout = 6500
             connection.doOutput = true
 
             val requestBody = JSONObject().apply {
@@ -677,7 +675,7 @@ Summarize what's on the screen in 2-3 SHORT sentences in casual Hindi. Focus on 
             return null
         } finally {
             try { connection?.disconnect() } catch (_: Exception) {}
-            activeConnection = null
+            if (connection != null) activeConnections.remove(connection)
         }
     }
 
@@ -687,11 +685,11 @@ Summarize what's on the screen in 2-3 SHORT sentences in casual Hindi. Focus on 
         var connection: HttpURLConnection? = null
         try {
             connection = URL("$GEMINI_URL?key=$geminiKey").openConnection() as HttpURLConnection
-            activeConnection = connection
+            activeConnections += connection
             connection.requestMethod = "POST"
             connection.setRequestProperty("Content-Type", "application/json")
-            connection.connectTimeout = 5000
-            connection.readTimeout = 8000
+            connection.connectTimeout = 3000
+            connection.readTimeout = 6500
             connection.doOutput = true
 
             val requestBody = JSONObject().apply {
@@ -732,7 +730,7 @@ Summarize what's on the screen in 2-3 SHORT sentences in casual Hindi. Focus on 
             return null
         } finally {
             try { connection?.disconnect() } catch (_: Exception) {}
-            activeConnection = null
+            if (connection != null) activeConnections.remove(connection)
         }
     }
 }
