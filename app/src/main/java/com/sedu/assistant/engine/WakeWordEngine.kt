@@ -40,13 +40,13 @@ class WakeWordEngine(
         // English patterns that Vosk outputs when you say "सेडू" / "Sedu"
         // Free-form recognition — no grammar, match output with regex
         private val EN_PATTERNS = listOf(
-            Regex("\\bsa[iy]d?\\s*d[uo]\\b", RegexOption.IGNORE_CASE),      // say do, said do, say du
+            Regex("\\bsa[iy]d?\\s*d[uo]\\b", RegexOption.IGNORE_CASE),       // say do, said do, say du
             Regex("\\bse[ea]?d?\\s*[dt][uo]o?\\b", RegexOption.IGNORE_CASE), // se do, see do, sed do, see too
             Regex("\\bse[ea]?\\s*d[uo]\\b", RegexOption.IGNORE_CASE),        // se du, sea do
             Regex("\\bset?\\s*d[uo]o?\\b", RegexOption.IGNORE_CASE),         // set do, set due
             Regex("\\bsaid?\\s*(you|due|dew|two)\\b", RegexOption.IGNORE_CASE), // said you, say due
             Regex("\\bced[ae]r?\\b", RegexOption.IGNORE_CASE),               // cedar (common mishear)
-            Regex("\\bsedu\\b", RegexOption.IGNORE_CASE),                     // direct "sedu" if model knows it
+            Regex("\\bsedu\\b", RegexOption.IGNORE_CASE),                     // direct "sedu"
             Regex("\\bsay\\s*d[uo]o?\\b", RegexOption.IGNORE_CASE),          // say doo, say du
             Regex("\\bso\\s*d[uo]o?\\b", RegexOption.IGNORE_CASE),           // so do, so due
             Regex("\\bsat?\\s*d[uo]o?\\b", RegexOption.IGNORE_CASE),         // sat do, sa du
@@ -55,6 +55,15 @@ class WakeWordEngine(
             Regex("\\bhe\\s*d[uo]o?\\b", RegexOption.IGNORE_CASE),           // he do, he due
             Regex("\\bsee\\s*[dt](oo|[uo])\\b", RegexOption.IGNORE_CASE),   // see do, see too, see tu
             Regex("\\bsee\\s*the\\b", RegexOption.IGNORE_CASE),              // see the
+            // Additional patterns for common Vosk mishearings of "Sedu"
+            Regex("\\bseder\\b", RegexOption.IGNORE_CASE),                   // seder — frequent Vosk output
+            Regex("\\bseeder\\b", RegexOption.IGNORE_CASE),                  // seeder
+            Regex("\\bseed[uoa]\\b", RegexOption.IGNORE_CASE),              // seedu, seedo, seeda
+            Regex("\\bs[aeiou]d[uoa]\\b", RegexOption.IGNORE_CASE),         // sedu/sadu/sidu/sodu etc.
+            Regex("\\bsido\\b", RegexOption.IGNORE_CASE),                    // sido
+            Regex("\\bcede\\b", RegexOption.IGNORE_CASE),                    // cede
+            Regex("\\bsitu\\b", RegexOption.IGNORE_CASE),                    // situ
+            Regex("\\bs[ae]\\s*d[ou][uo]\\b", RegexOption.IGNORE_CASE),    // se doo, sa doo variants
         )
 
         // Hindi patterns — what Hindi Vosk model outputs for "सेडू" sound

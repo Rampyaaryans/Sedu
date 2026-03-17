@@ -255,7 +255,7 @@ class SeduService : Service() {
             })
             wakeWordEngine?.start()
             Log.d(TAG, "Wake word engine started (dual free-form)")
-        }, 500)
+        }, 150) // 150ms is enough for OS audio routing to settle; shorter = faster re-activation
     }
 
     private fun onWakeWord(audioData: ShortArray) {

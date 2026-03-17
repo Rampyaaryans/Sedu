@@ -327,18 +327,18 @@ class SpeechEngine(
         }
     }
 
-    private var savedMusicVol = -1
+    // Only track system/notification — STREAM_MUSIC must NEVER be muted (TTS uses it)
     private var savedSystemVol = -1
     private var savedNotifVol = -1
 
     private fun muteStreams() {
         try {
-            if (savedMusicVol < 0) {
-                savedMusicVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+            if (savedSystemVol < 0) {
                 savedSystemVol = audioManager.getStreamVolume(AudioManager.STREAM_SYSTEM)
                 savedNotifVol = audioManager.getStreamVolume(AudioManager.STREAM_NOTIFICATION)
             }
-            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, 0, 0)
+            // Suppress Google recognition ding — system stream only
+            // STREAM_MUSIC intentionally skipped: Sedu TTS plays on it and must stay audible
             audioManager.setStreamVolume(AudioManager.STREAM_SYSTEM, 0, 0)
             audioManager.setStreamVolume(AudioManager.STREAM_NOTIFICATION, 0, 0)
         } catch (e: Exception) {
@@ -347,15 +347,13 @@ class SpeechEngine(
     }
 
     private fun unmuteStreams() {
-        if (savedMusicVol < 0) return
+        if (savedSystemVol < 0) return
         try {
-            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, savedMusicVol, 0)
             audioManager.setStreamVolume(AudioManager.STREAM_SYSTEM, savedSystemVol, 0)
             audioManager.setStreamVolume(AudioManager.STREAM_NOTIFICATION, savedNotifVol, 0)
         } catch (e: Exception) {
             Log.e(TAG, "Unmute error", e)
         }
-        savedMusicVol = -1
         savedSystemVol = -1
         savedNotifVol = -1
     }
