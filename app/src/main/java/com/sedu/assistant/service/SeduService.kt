@@ -793,10 +793,18 @@ class SeduService : Service() {
 
     private fun reloadBrainConfig() {
         val prefs = getSharedPreferences(UserPrefs.PREFS_NAME, MODE_PRIVATE)
-        geminiBrain?.setGroqKey(prefs.getString(UserPrefs.KEY_GROQ_API_KEY, "") ?: "")
-        geminiBrain?.setMistralKey(prefs.getString(UserPrefs.KEY_MISTRAL_API_KEY, "") ?: "")
-        geminiBrain?.setOpenAiKey(prefs.getString(UserPrefs.KEY_OPENAI_API_KEY, "") ?: "")
-        geminiBrain?.setApiKey(prefs.getString(UserPrefs.KEY_GEMINI_API_KEY, "") ?: "")
+
+        // Only override embedded BuildConfig keys when user provided non-blank values.
+        val groq = prefs.getString(UserPrefs.KEY_GROQ_API_KEY, "") ?: ""
+        val mistral = prefs.getString(UserPrefs.KEY_MISTRAL_API_KEY, "") ?: ""
+        val openai = prefs.getString(UserPrefs.KEY_OPENAI_API_KEY, "") ?: ""
+        val gemini = prefs.getString(UserPrefs.KEY_GEMINI_API_KEY, "") ?: ""
+
+        if (groq.isNotBlank()) geminiBrain?.setGroqKey(groq)
+        if (mistral.isNotBlank()) geminiBrain?.setMistralKey(mistral)
+        if (openai.isNotBlank()) geminiBrain?.setOpenAiKey(openai)
+        if (gemini.isNotBlank()) geminiBrain?.setApiKey(gemini)
+
         geminiBrain?.setUserSalutation(UserPrefs.salutationByGender(this))
     }
 }

@@ -120,6 +120,9 @@ class SeduTTS(context: Context) {
         try {
             val voices = tts?.voices ?: return
             val voiceMap = voices.associateBy { it.name }
+            val hindiOffline = voices.filter {
+                it.locale.language == "hi" && !it.isNetworkConnectionRequired
+            }
 
             val hindiMalePrefs = listOf(
                 "hi-in-x-hie-local",    // Hindi male E (best male)
@@ -142,6 +145,20 @@ class SeduTTS(context: Context) {
                 if (v != null) { hindiFemaleVoice = v; break }
             }
 
+            // Heuristic fallback by voice name tags if preferred IDs are unavailable.
+            if (hindiFemaleVoice == null) {
+                hindiFemaleVoice = hindiOffline.firstOrNull {
+                    val n = it.name.lowercase()
+                    n.contains("hid") || n.contains("hia") || n.contains("female") || n.contains("fem")
+                }
+            }
+            if (hindiMaleVoice == null) {
+                hindiMaleVoice = hindiOffline.firstOrNull {
+                    val n = it.name.lowercase()
+                    n.contains("hie") || n.contains("hic") || n.contains("hib") || n.contains("male")
+                }
+            }
+
             hindiVoice = hindiMaleVoice ?: hindiFemaleVoice
 
             // Fallback: any offline Hindi voice
@@ -152,7 +169,12 @@ class SeduTTS(context: Context) {
             }
 
             if (hindiMaleVoice == null) hindiMaleVoice = hindiVoice
-            if (hindiFemaleVoice == null) hindiFemaleVoice = hindiVoice
+
+            // If a distinct female Hindi voice is unavailable on device, choose any different
+            // Hindi offline voice first; only then fall back to male voice.
+            if (hindiFemaleVoice == null) {
+                hindiFemaleVoice = hindiOffline.firstOrNull { it.name != hindiMaleVoice?.name } ?: hindiVoice
+            }
 
             tts?.voice = hindiVoice
 
@@ -175,12 +197,19 @@ class SeduTTS(context: Context) {
 
         selectedVoice?.let { tts?.voice = it }
 
-        val pitch = when (pitchMode) {
+        val basePitch = when (pitchMode) {
             UserPrefs.PITCH_LOW -> 0.88f
             UserPrefs.PITCH_HIGH -> 1.15f
             else -> 1.0f
         }
-        tts?.setPitch(pitch)
+
+        // Ensure female style sounds clearly different even when device lacks a proper female voice.
+        val finalPitch = if (style == UserPrefs.VOICE_STYLE_FEMALE) {
+            (basePitch + 0.18f).coerceAtMost(1.35f)
+        } else {
+            basePitch
+        }
+        tts?.setPitch(finalPitch)
     }
 
     /**
