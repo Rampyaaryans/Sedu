@@ -209,6 +209,45 @@
                     android:alpha="0" />
             </LinearLayout>
 
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="10dp">
+
+                <Button
+                    android:id="@+id/voiceSettingsButton"
+                    android:layout_width="0dp"
+                    android:layout_height="46dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="6dp"
+                    android:backgroundTint="@color/primary"
+                    android:text="Voice"
+                    android:textColor="@color/text_dark"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium"
+                    android:elevation="2dp"
+                    android:stateListAnimator="@null"
+                    android:alpha="0" />
+
+                <Button
+                    android:id="@+id/apiKeysButton"
+                    android:layout_width="0dp"
+                    android:layout_height="46dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="6dp"
+                    android:backgroundTint="@color/primary"
+                    android:text="API Keys"
+                    android:textColor="@color/text_dark"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium"
+                    android:elevation="2dp"
+                    android:stateListAnimator="@null"
+                    android:alpha="0" />
+            </LinearLayout>
+
             <!-- How to use link -->
             <TextView
                 android:id="@+id/userManualButton"

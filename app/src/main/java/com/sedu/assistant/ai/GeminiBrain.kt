@@ -12,6 +12,10 @@ import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.concurrent.Callable
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Quad AI brain: Groq → Mistral → OpenAI → Gemini.
@@ -146,13 +150,26 @@ EXAMPLES:
     @Volatile private var activeConnection: HttpURLConnection? = null
     private var memory: SeduMemory? = null
     private val webSearcher = WebSearcher()
+    private var userSalutation: String = "भाई"
 
     fun setApiKey(key: String) {
-        if (key.isNotBlank()) geminiKey = key
+        geminiKey = key.ifBlank { null }
     }
 
     fun setGroqKey(key: String) {
-        if (key.isNotBlank()) groqKey = key
+        groqKey = key.ifBlank { null }
+    }
+
+    fun setMistralKey(key: String) {
+        if (key.isNotBlank()) mistralKey = key else mistralKey = null
+    }
+
+    fun setOpenAiKey(key: String) {
+        if (key.isNotBlank()) openaiKey = key else openaiKey = null
+    }
+
+    fun setUserSalutation(salutation: String) {
+        if (salutation.isNotBlank()) userSalutation = salutation
     }
 
     fun setMemory(mem: SeduMemory) {
@@ -189,7 +206,9 @@ EXAMPLES:
         // Memory injection — gives AI conversation history
         val memorySection = memory?.getMemoryForPrompt() ?: ""
 
-        return SYSTEM_PROMPT + contactSection + memorySection + searchContext + "\n\nUser said (STT output): \"$sttText\""
+        val personalization = "\n\nUSER PERSONA RULE: User ko hamesha '$userSalutation' bolkar friendly tone mein reply do."
+
+        return SYSTEM_PROMPT + personalization + contactSection + memorySection + searchContext + "\n\nUser said (STT output): \"$sttText\""
     }
 
     /**
@@ -224,6 +243,24 @@ EXAMPLES:
         return result
     }
 
+    /**
+     * Faster variant: race all available backends in parallel and return first valid response.
+     */
+    fun understandFast(sttText: String): AIResponse? {
+        if (sttText.isBlank()) return null
+        val prompt = buildFullPrompt(sttText)
+        val result = callAllBackendsParallel(prompt) ?: return null
+
+        if (result.action == "live_search") {
+            val searchQuery = result.params.optString("query", sttText)
+            val searchContext = webSearcher.getSearchContextForPrompt(searchQuery)
+            if (searchContext.isNotBlank()) {
+                return callAllBackendsParallel(buildFullPrompt(sttText, searchContext)) ?: result
+            }
+        }
+        return result
+    }
+
     /** Try all 4 backends in fallback order */
     private fun callAllBackends(prompt: String): AIResponse? {
         // 1. Try Groq (primary — fastest)
@@ -255,6 +292,58 @@ EXAMPLES:
         }
 
         return null
+    }
+
+    /** Parallel race across all configured backends, returning first valid parsed response. */
+    private fun callAllBackendsParallel(prompt: String): AIResponse? {
+        val tasks = mutableListOf<Callable<AIResponse?>>()
+        if (!groqKey.isNullOrBlank()) {
+            tasks += Callable { callOpenAICompatible(GROQ_URL, groqKey!!, GROQ_MODEL, prompt, "Groq") }
+        }
+        if (!mistralKey.isNullOrBlank()) {
+            tasks += Callable { callOpenAICompatible(MISTRAL_URL, mistralKey!!, MISTRAL_MODEL, prompt, "Mistral") }
+        }
+        if (!openaiKey.isNullOrBlank()) {
+            tasks += Callable { callOpenAICompatible(OPENAI_URL, openaiKey!!, OPENAI_MODEL, prompt, "OpenAI") }
+        }
+        if (!geminiKey.isNullOrBlank()) {
+            tasks += Callable { callGemini(prompt) }
+        }
+        if (tasks.isEmpty()) return null
+
+        val executor = Executors.newFixedThreadPool(tasks.size)
+        val done = AtomicBoolean(false)
+        return try {
+            val futures = tasks.map { task ->
+                executor.submit<AIResponse?> {
+                    if (done.get()) return@submit null
+                    val result = task.call()
+                    if (result != null) done.set(true)
+                    result
+                }
+            }
+
+            val start = System.currentTimeMillis()
+            val timeoutMs = 9000L
+            var winner: AIResponse? = null
+            while (System.currentTimeMillis() - start < timeoutMs && winner == null) {
+                for (f in futures) {
+                    if (!f.isDone) continue
+                    try {
+                        val candidate = f.get()
+                        if (candidate != null) {
+                            winner = candidate
+                            break
+                        }
+                    } catch (_: Exception) {}
+                }
+                if (winner == null) Thread.sleep(25)
+            }
+            winner
+        } finally {
+            executor.shutdownNow()
+            try { executor.awaitTermination(150, TimeUnit.MILLISECONDS) } catch (_: Exception) {}
+        }
     }
 
     // ==================== UNIFIED OpenAI-Compatible API (Groq/Mistral/OpenAI) ====================

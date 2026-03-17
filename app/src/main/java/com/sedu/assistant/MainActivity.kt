@@ -3,6 +3,7 @@ package com.sedu.assistant
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
+import android.app.AlertDialog
 import android.content.Intent
 import android.graphics.Canvas
 import android.graphics.Color
@@ -26,11 +27,15 @@ import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
 import android.widget.Button
+import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.RadioButton
+import android.widget.RadioGroup
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.sedu.assistant.service.SeduService
+import com.sedu.assistant.tts.SeduTTS
 import com.sedu.assistant.util.ModelManager
 import com.sedu.assistant.voice.VoiceEnrollActivity
 import com.sedu.assistant.voice.VoiceProfile
@@ -43,6 +48,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var trainVoiceButton: Button
     private lateinit var userManualButton: TextView
     private lateinit var historyButton: Button
+    private lateinit var voiceSettingsButton: Button
+    private lateinit var apiKeysButton: Button
     private lateinit var letterS: TextView
     private lateinit var letterE: TextView
     private lateinit var letterD: TextView
@@ -57,16 +64,14 @@ class MainActivity : AppCompatActivity() {
     private var floatAnimators = mutableListOf<ObjectAnimator>()
 
     companion object {
-        private const val PREFS_NAME = "sedu_prefs"
-        private const val KEY_SETUP_DONE = "setup_done"
         private const val OVERLAY_PERMISSION_REQUEST = 1001
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-        if (!prefs.getBoolean(KEY_SETUP_DONE, false)) {
+        val prefs = getSharedPreferences(UserPrefs.PREFS_NAME, MODE_PRIVATE)
+        if (!prefs.getBoolean(UserPrefs.KEY_SETUP_DONE, false)) {
             startActivity(Intent(this, com.sedu.assistant.setup.SetupActivity::class.java))
             finish()
             return
@@ -74,6 +79,7 @@ class MainActivity : AppCompatActivity() {
 
         setContentView(R.layout.activity_main)
         initViews()
+        promptGenderIfNeeded()
 
         // Force voice training if not enrolled
         val vp = VoiceProfile(this)
@@ -84,8 +90,8 @@ class MainActivity : AppCompatActivity() {
             }, 1500)
         }
 
-        // Auto-start service immediately
-        if (ModelManager.isModelReady(this) && !SeduService.isRunning) {
+        // Auto-start only if user has not manually stopped Sedu.
+        if (ModelManager.isModelReady(this) && !SeduService.isRunning && !prefs.getBoolean(UserPrefs.KEY_USER_STOPPED, false)) {
             startSeduService()
         }
 
@@ -104,6 +110,8 @@ class MainActivity : AppCompatActivity() {
         trainVoiceButton = findViewById(R.id.trainVoiceButton)
         userManualButton = findViewById<TextView>(R.id.userManualButton)
         historyButton = findViewById(R.id.historyButton)
+        voiceSettingsButton = findViewById(R.id.voiceSettingsButton)
+        apiKeysButton = findViewById(R.id.apiKeysButton)
         letterS = findViewById(R.id.letterS)
         letterE = findViewById(R.id.letterE)
         letterD = findViewById(R.id.letterD)
@@ -134,6 +142,154 @@ class MainActivity : AppCompatActivity() {
         historyButton.setOnClickListener {
             startActivity(Intent(this, HistoryActivity::class.java))
         }
+
+        voiceSettingsButton.setOnClickListener {
+            showVoiceSettingsDialog()
+        }
+
+        apiKeysButton.setOnClickListener {
+            showApiKeysDialog()
+        }
+    }
+
+    private fun promptGenderIfNeeded() {
+        val prefs = getSharedPreferences(UserPrefs.PREFS_NAME, MODE_PRIVATE)
+        if (prefs.contains(UserPrefs.KEY_USER_GENDER)) return
+
+        val choices = arrayOf("पुरुष", "महिला")
+        var selected = 0
+        AlertDialog.Builder(this)
+            .setTitle("अपना जेंडर चुनो")
+            .setMessage("ताकि सेडू तुम्हें अपने दोस्त की तरह सही तरीके से संबोधित करे")
+            .setSingleChoiceItems(choices, 0) { _, which -> selected = which }
+            .setCancelable(false)
+            .setPositiveButton("सेव") { _, _ ->
+                val gender = if (selected == 1) UserPrefs.GENDER_FEMALE else UserPrefs.GENDER_MALE
+                prefs.edit().putString(UserPrefs.KEY_USER_GENDER, gender).apply()
+            }
+            .show()
+    }
+
+    private fun showVoiceSettingsDialog() {
+        val prefs = getSharedPreferences(UserPrefs.PREFS_NAME, MODE_PRIVATE)
+        val savedStyle = prefs.getString(UserPrefs.KEY_TTS_VOICE_STYLE, UserPrefs.VOICE_STYLE_MALE)
+        val savedPitch = prefs.getString(UserPrefs.KEY_TTS_PITCH_MODE, UserPrefs.PITCH_MEDIUM)
+
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(32, 20, 32, 8)
+        }
+
+        val styleLabel = TextView(this).apply { text = "आवाज़ स्टाइल (हिंदी)" }
+        val styleGroup = RadioGroup(this).apply { orientation = RadioGroup.VERTICAL }
+        val maleStyle = RadioButton(this).apply { text = "पुरुष आवाज़"; id = View.generateViewId() }
+        val femaleStyle = RadioButton(this).apply { text = "महिला आवाज़"; id = View.generateViewId() }
+        styleGroup.addView(maleStyle)
+        styleGroup.addView(femaleStyle)
+        if (savedStyle == UserPrefs.VOICE_STYLE_FEMALE) styleGroup.check(femaleStyle.id) else styleGroup.check(maleStyle.id)
+
+        val pitchLabel = TextView(this).apply {
+            text = "पिच"
+            setPadding(0, 20, 0, 0)
+        }
+        val pitchGroup = RadioGroup(this).apply { orientation = RadioGroup.VERTICAL }
+        val lowPitch = RadioButton(this).apply { text = "लो पिच"; id = View.generateViewId() }
+        val midPitch = RadioButton(this).apply { text = "मिड पिच"; id = View.generateViewId() }
+        val highPitch = RadioButton(this).apply { text = "हाई पिच"; id = View.generateViewId() }
+        pitchGroup.addView(lowPitch)
+        pitchGroup.addView(midPitch)
+        pitchGroup.addView(highPitch)
+        when (savedPitch) {
+            UserPrefs.PITCH_LOW -> pitchGroup.check(lowPitch.id)
+            UserPrefs.PITCH_HIGH -> pitchGroup.check(highPitch.id)
+            else -> pitchGroup.check(midPitch.id)
+        }
+
+        root.addView(styleLabel)
+        root.addView(styleGroup)
+        root.addView(pitchLabel)
+        root.addView(pitchGroup)
+
+        AlertDialog.Builder(this)
+            .setTitle("वॉइस सेटिंग्स")
+            .setView(root)
+            .setNegativeButton("रद्द", null)
+            .setNeutralButton("टेस्ट आवाज़") { _, _ ->
+                val tempTts = SeduTTS(this)
+                tempTts.speak("नमस्ते ${UserPrefs.salutationByGender(this)}, मैं सेडू हूँ") {
+                    tempTts.shutdown()
+                }
+            }
+            .setPositiveButton("सेव") { _, _ ->
+                val style = if (styleGroup.checkedRadioButtonId == femaleStyle.id) {
+                    UserPrefs.VOICE_STYLE_FEMALE
+                } else {
+                    UserPrefs.VOICE_STYLE_MALE
+                }
+                val pitch = when (pitchGroup.checkedRadioButtonId) {
+                    lowPitch.id -> UserPrefs.PITCH_LOW
+                    highPitch.id -> UserPrefs.PITCH_HIGH
+                    else -> UserPrefs.PITCH_MEDIUM
+                }
+                prefs.edit()
+                    .putString(UserPrefs.KEY_TTS_VOICE_STYLE, style)
+                    .putString(UserPrefs.KEY_TTS_PITCH_MODE, pitch)
+                    .apply()
+                Toast.makeText(this, "वॉइस सेटिंग सेव हो गई", Toast.LENGTH_SHORT).show()
+            }
+            .show()
+    }
+
+    private fun showApiKeysDialog() {
+        val prefs = getSharedPreferences(UserPrefs.PREFS_NAME, MODE_PRIVATE)
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(32, 20, 32, 8)
+        }
+
+        fun keyField(hint: String, current: String): EditText {
+            return EditText(this).apply {
+                this.hint = hint
+                setSingleLine(true)
+                setText(current)
+            }
+        }
+
+        val groq = keyField("Groq API Key", prefs.getString(UserPrefs.KEY_GROQ_API_KEY, "") ?: "")
+        val mistral = keyField("Mistral API Key", prefs.getString(UserPrefs.KEY_MISTRAL_API_KEY, "") ?: "")
+        val openai = keyField("OpenAI API Key", prefs.getString(UserPrefs.KEY_OPENAI_API_KEY, "") ?: "")
+        val gemini = keyField("Gemini API Key", prefs.getString(UserPrefs.KEY_GEMINI_API_KEY, "") ?: "")
+
+        root.addView(groq)
+        root.addView(mistral)
+        root.addView(openai)
+        root.addView(gemini)
+
+        AlertDialog.Builder(this)
+            .setTitle("API Keys")
+            .setMessage("अपने बैकअप API keys डालो ताकि Sedu कभी बंद न पड़े")
+            .setView(root)
+            .setNegativeButton("रद्द", null)
+            .setPositiveButton("सेव") { _, _ ->
+                prefs.edit()
+                    .putString(UserPrefs.KEY_GROQ_API_KEY, groq.text.toString().trim())
+                    .putString(UserPrefs.KEY_MISTRAL_API_KEY, mistral.text.toString().trim())
+                    .putString(UserPrefs.KEY_OPENAI_API_KEY, openai.text.toString().trim())
+                    .putString(UserPrefs.KEY_GEMINI_API_KEY, gemini.text.toString().trim())
+                    .apply()
+
+                val refreshIntent = Intent(this, SeduService::class.java).apply {
+                    action = SeduService.ACTION_REFRESH_CONFIG
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    startForegroundService(refreshIntent)
+                } else {
+                    startService(refreshIntent)
+                }
+
+                Toast.makeText(this, "API keys सेव हो गए", Toast.LENGTH_SHORT).show()
+            }
+            .show()
     }
 
     private fun startLetterAnimation() {
@@ -178,7 +334,16 @@ class MainActivity : AppCompatActivity() {
 
         // Phase 2: Fade in subtitle, status, and bottom card elements with slide up
         val fadeDelay = 1200L
-        val fadeViews = listOf<View>(subtitleText, statusText, toggleButton, trainVoiceButton, historyButton, userManualButton)
+        val fadeViews = listOf<View>(
+            subtitleText,
+            statusText,
+            toggleButton,
+            trainVoiceButton,
+            historyButton,
+            voiceSettingsButton,
+            apiKeysButton,
+            userManualButton
+        )
         fadeViews.forEachIndexed { i, v ->
             anims.add(ObjectAnimator.ofFloat(v, "alpha", 0f, 1f).apply {
                 duration = 500
@@ -363,10 +528,10 @@ class MainActivity : AppCompatActivity() {
             return
         }
         val serviceIntent = Intent(this, SeduService::class.java)
-        // If service is passive, send GO_ACTIVE action
-        if (SeduService.isPassive) {
-            serviceIntent.action = SeduService.ACTION_GO_ACTIVE
-        }
+        getSharedPreferences(UserPrefs.PREFS_NAME, MODE_PRIVATE)
+            .edit()
+            .putBoolean(UserPrefs.KEY_USER_STOPPED, false)
+            .apply()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(serviceIntent)
         } else {
@@ -377,15 +542,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun stopSeduService() {
-        // Don't stop service — go passive (keep listening for owner's wake word)
-        val intent = Intent(this, SeduService::class.java).apply {
-            action = SeduService.ACTION_GO_PASSIVE
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(intent)
-        } else {
-            startService(intent)
-        }
+        getSharedPreferences(UserPrefs.PREFS_NAME, MODE_PRIVATE)
+            .edit()
+            .putBoolean(UserPrefs.KEY_USER_STOPPED, true)
+            .apply()
+        stopService(Intent(this, SeduService::class.java))
         isServiceRunning = false
         updateUI()
     }
@@ -399,11 +560,6 @@ class MainActivity : AppCompatActivity() {
             subtitleText.text = if (enrolled) "Only your voice activates Sedu" else "Train voice for owner-only mode"
             toggleButton.text = "Stop Sedu"
             toggleButton.backgroundTintList = ContextCompat.getColorStateList(this, R.color.red_stop)
-        } else if (SeduService.isPassive) {
-            statusText.text = "Sleeping — say \"Sedu\" to wake"
-            subtitleText.text = if (enrolled) "Owner voice will wake Sedu" else "Train voice first"
-            toggleButton.text = "Start Sedu"
-            toggleButton.backgroundTintList = ContextCompat.getColorStateList(this, R.color.primary_dark)
         } else {
             statusText.text = "Tap Start to begin"
             subtitleText.text = if (enrolled) "Voice trained" else "Train your voice first"
@@ -416,7 +572,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        isServiceRunning = SeduService.isRunning && !SeduService.isPassive
+        isServiceRunning = SeduService.isRunning
         updateUI()
 
         // If voice was just enrolled, update button text

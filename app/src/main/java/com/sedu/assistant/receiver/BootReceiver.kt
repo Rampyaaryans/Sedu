@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.util.Log
+import com.sedu.assistant.UserPrefs
 import com.sedu.assistant.service.SeduService
 
 class BootReceiver : BroadcastReceiver() {
@@ -15,8 +16,8 @@ class BootReceiver : BroadcastReceiver() {
             intent.action == "com.htc.intent.action.QUICKBOOT_POWERON"
         ) {
             Log.d("BootReceiver", "Boot completed, starting Sedu service")
-            val prefs = context.getSharedPreferences("sedu_prefs", Context.MODE_PRIVATE)
-            if (prefs.getBoolean("setup_done", false)) {
+            val prefs = context.getSharedPreferences(UserPrefs.PREFS_NAME, Context.MODE_PRIVATE)
+            if (prefs.getBoolean(UserPrefs.KEY_SETUP_DONE, false) && !prefs.getBoolean(UserPrefs.KEY_USER_STOPPED, false)) {
                 val serviceIntent = Intent(context, SeduService::class.java)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     context.startForegroundService(serviceIntent)

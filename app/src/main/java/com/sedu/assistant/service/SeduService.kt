@@ -18,6 +18,7 @@ import androidx.core.app.NotificationCompat
 import com.sedu.assistant.MainActivity
 import com.sedu.assistant.R
 import com.sedu.assistant.SeduApp
+import com.sedu.assistant.UserPrefs
 import com.sedu.assistant.ai.GeminiBrain
 import com.sedu.assistant.engine.ActionExecutor
 import com.sedu.assistant.engine.CommandParser
@@ -70,10 +71,9 @@ class SeduService : Service() {
 
     companion object {
         const val TAG = "SeduService"
-        const val PREFS_NAME = "sedu_prefs"
-        const val KEY_GEMINI_API_KEY = "gemini_api_key"
         const val ACTION_GO_PASSIVE = "com.sedu.assistant.GO_PASSIVE"
         const val ACTION_GO_ACTIVE = "com.sedu.assistant.GO_ACTIVE"
+        const val ACTION_REFRESH_CONFIG = "com.sedu.assistant.REFRESH_CONFIG"
         var isRunning = false
             private set
         var isPassive = false
@@ -105,11 +105,7 @@ class SeduService : Service() {
 
         // Initialize Gemini AI brain (has default key, user can override)
         geminiBrain = GeminiBrain()
-        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-        val savedKey = prefs.getString(KEY_GEMINI_API_KEY, "") ?: ""
-        if (savedKey.isNotBlank()) {
-            geminiBrain?.setApiKey(savedKey)
-        }
+        reloadBrainConfig()
         Log.d(TAG, "Gemini AI brain initialized, hasKey=${geminiBrain?.hasApiKey()}")
 
         // Initialize RAG memory system
@@ -152,6 +148,12 @@ class SeduService : Service() {
 
         startForeground(1, createNotification("Sedu is listening..."))
 
+        if (intent?.action == ACTION_REFRESH_CONFIG) {
+            reloadBrainConfig()
+            updateNotification("नया कॉन्फ़िग लग गया")
+            return START_STICKY
+        }
+
         // Handle passive mode (STOP button → keep wake word only)
         if (intent?.action == ACTION_GO_PASSIVE) {
             goPassive()
@@ -172,6 +174,11 @@ class SeduService : Service() {
             Log.d(TAG, "Already running, skipping re-init")
             return START_STICKY
         }
+
+        getSharedPreferences(UserPrefs.PREFS_NAME, MODE_PRIVATE)
+            .edit()
+            .putBoolean(UserPrefs.KEY_USER_STOPPED, false)
+            .apply()
 
         isRunning = true
 
@@ -307,7 +314,7 @@ class SeduService : Service() {
         // Wait 250ms for mic to fully release from WakeWordEngine, then speak greeting
         Handler(Looper.getMainLooper()).postDelayed({
             if (!inConversation) { endConversation(); return@postDelayed }
-            seduTTS?.speak("राम राम भाई, क्या मदद चाहिए?") {
+            seduTTS?.speak("राम राम ${UserPrefs.salutationByGender(this)}, क्या मदद चाहिए?") {
                 // TTS done callback — marshal to main thread, start listening immediately
                 Handler(Looper.getMainLooper()).post {
                     if (inConversation) startCommandListening()
@@ -346,7 +353,7 @@ class SeduService : Service() {
         // Wait for mic release, then speak greeting and start recognizer
         Handler(Looper.getMainLooper()).postDelayed({
             if (!inConversation) return@postDelayed
-            seduTTS?.speak("हाँ बोलो भाई?") {
+            seduTTS?.speak("हाँ बोलो ${UserPrefs.salutationByGender(this)}?") {
                 Handler(Looper.getMainLooper()).postDelayed({
                     if (inConversation) startGoogleSpeechRecognizer()
                 }, 100)
@@ -466,7 +473,7 @@ class SeduService : Service() {
             updateNotification("AI thinking...")
             geminiThread = Thread {
                 try {
-                    val aiResponse = geminiBrain?.understand(text)
+                    val aiResponse = geminiBrain?.understandFast(text)
                     if (aiResponse != null) {
                         Log.d(TAG, "AI: ${aiResponse.action} → ${aiResponse.reply}")
                         // Save to memory for RAG context
@@ -484,7 +491,7 @@ class SeduService : Service() {
             }
             geminiThread?.start()
         } else {
-            executeCommand(localCommand, null)
+            speakThenListen("अरे यार, फ्यूल ख़त्म हो गया, थोड़ा खाना दे। API key सेट कर दे")
         }
     }
 
@@ -506,7 +513,7 @@ class SeduService : Service() {
 
     private fun executeCommand(command: SeduCommand, aiReply: String?) {
         if (command is SeduCommand.Goodbye) {
-            val reply = aiReply ?: "ठीक है भाई, अपना ध्यान रखना"
+            val reply = aiReply ?: "ठीक है ${UserPrefs.salutationByGender(this)}, अपना ध्यान रखना"
             seduTTS?.speak(reply) {
                 endConversation()
             }
@@ -756,7 +763,14 @@ class SeduService : Service() {
         isPassive = false
         currentState = SeduServiceState.IDLE
 
-        // Schedule restart — Sedu should ALWAYS be running
+        val userStopped = getSharedPreferences(UserPrefs.PREFS_NAME, MODE_PRIVATE)
+            .getBoolean(UserPrefs.KEY_USER_STOPPED, false)
+        if (userStopped) {
+            Log.d(TAG, "Not scheduling restart: user stopped Sedu manually")
+            return
+        }
+
+        // Schedule restart only when not manually stopped.
         try {
             val restartIntent = Intent(this, SeduService::class.java)
             val pendingIntent = PendingIntent.getService(
@@ -776,4 +790,13 @@ class SeduService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    private fun reloadBrainConfig() {
+        val prefs = getSharedPreferences(UserPrefs.PREFS_NAME, MODE_PRIVATE)
+        geminiBrain?.setGroqKey(prefs.getString(UserPrefs.KEY_GROQ_API_KEY, "") ?: "")
+        geminiBrain?.setMistralKey(prefs.getString(UserPrefs.KEY_MISTRAL_API_KEY, "") ?: "")
+        geminiBrain?.setOpenAiKey(prefs.getString(UserPrefs.KEY_OPENAI_API_KEY, "") ?: "")
+        geminiBrain?.setApiKey(prefs.getString(UserPrefs.KEY_GEMINI_API_KEY, "") ?: "")
+        geminiBrain?.setUserSalutation(UserPrefs.salutationByGender(this))
+    }
 }

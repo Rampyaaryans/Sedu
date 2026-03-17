@@ -5,6 +5,7 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.speech.tts.Voice
 import android.util.Log
+import com.sedu.assistant.UserPrefs
 import java.util.Locale
 import java.util.UUID
 
@@ -44,13 +45,15 @@ class SeduTTS(context: Context) {
         )
     }
 
+    private val appContext = context.applicationContext
     private var tts: TextToSpeech? = null
     private var isReady = false
     private val pendingQueue = mutableListOf<Pair<String, (() -> Unit)?>>()
 
     // Store both voices for switching
     private var hindiVoice: Voice? = null
-    private var englishVoice: Voice? = null
+    private var hindiMaleVoice: Voice? = null
+    private var hindiFemaleVoice: Voice? = null
 
     // Callback map — set listener ONCE, dispatch by utteranceId
     private val completionCallbacks = java.util.concurrent.ConcurrentHashMap<String, () -> Unit>()
@@ -68,8 +71,8 @@ class SeduTTS(context: Context) {
 
                 // Set Hindi locale for pure Hindi output
                 tts?.language = Locale("hi", "IN")
-                tts?.setPitch(1.0f)
                 tts?.setSpeechRate(0.95f)
+                applyUserVoicePrefs()
 
                 // Set listener ONCE — never overwrite
                 tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
@@ -88,7 +91,7 @@ class SeduTTS(context: Context) {
                 })
 
                 isReady = true
-                Log.d(TAG, "TTS ready, hindi=${hindiVoice?.name}, english=${englishVoice?.name}")
+                Log.d(TAG, "TTS ready, hindi=${hindiVoice?.name}")
 
                 pendingQueue.forEach { speak(it.first, it.second) }
                 pendingQueue.clear()
@@ -118,19 +121,28 @@ class SeduTTS(context: Context) {
             val voices = tts?.voices ?: return
             val voiceMap = voices.associateBy { it.name }
 
-            // Hindi voice preferences — MALE voices first for natural Indian male sound
-            val hindiPrefs = listOf(
+            val hindiMalePrefs = listOf(
                 "hi-in-x-hie-local",    // Hindi male E (best male)
                 "hi-in-x-hic-local",    // Hindi male C
                 "hi-in-x-hib-local",    // Hindi B
+            )
+
+            val hindiFemalePrefs = listOf(
                 "hi-in-x-hid-local",    // Hindi female D
                 "hi-in-x-hia-local",    // Hindi female A
             )
 
-            for (name in hindiPrefs) {
+            for (name in hindiMalePrefs) {
                 val v = voiceMap[name]
-                if (v != null) { hindiVoice = v; break }
+                if (v != null) { hindiMaleVoice = v; break }
             }
+
+            for (name in hindiFemalePrefs) {
+                val v = voiceMap[name]
+                if (v != null) { hindiFemaleVoice = v; break }
+            }
+
+            hindiVoice = hindiMaleVoice ?: hindiFemaleVoice
 
             // Fallback: any offline Hindi voice
             if (hindiVoice == null) {
@@ -139,16 +151,36 @@ class SeduTTS(context: Context) {
                 }
             }
 
-            // Set Hindi as the ONLY voice
-            val defaultVoice = hindiVoice
-            if (defaultVoice != null) {
-                tts?.voice = defaultVoice
-            }
+            if (hindiMaleVoice == null) hindiMaleVoice = hindiVoice
+            if (hindiFemaleVoice == null) hindiFemaleVoice = hindiVoice
+
+            tts?.voice = hindiVoice
 
             Log.d(TAG, "Hindi voice selected: ${hindiVoice?.name}")
         } catch (e: Exception) {
             Log.e(TAG, "Voice selection error", e)
         }
+    }
+
+    private fun applyUserVoicePrefs() {
+        val prefs = appContext.getSharedPreferences(UserPrefs.PREFS_NAME, Context.MODE_PRIVATE)
+        val style = prefs.getString(UserPrefs.KEY_TTS_VOICE_STYLE, UserPrefs.VOICE_STYLE_MALE)
+        val pitchMode = prefs.getString(UserPrefs.KEY_TTS_PITCH_MODE, UserPrefs.PITCH_MEDIUM)
+
+        val selectedVoice = if (style == UserPrefs.VOICE_STYLE_FEMALE) {
+            hindiFemaleVoice ?: hindiVoice
+        } else {
+            hindiMaleVoice ?: hindiVoice
+        }
+
+        selectedVoice?.let { tts?.voice = it }
+
+        val pitch = when (pitchMode) {
+            UserPrefs.PITCH_LOW -> 0.88f
+            UserPrefs.PITCH_HIGH -> 1.15f
+            else -> 1.0f
+        }
+        tts?.setPitch(pitch)
     }
 
     /**
@@ -180,10 +212,8 @@ class SeduTTS(context: Context) {
             completionCallbacks[utteranceId] = onComplete
         }
 
-        // Always use Hindi voice for pure Hindi output
-        if (hindiVoice != null && tts?.voice?.name != hindiVoice!!.name) {
-            tts?.voice = hindiVoice
-        }
+        // Re-apply user-selected Hindi voice and pitch before each utterance.
+        applyUserVoicePrefs()
 
         // Strip emojis and special symbols — TTS reads them as English words
         val cleanText = text.replace(Regex("[\\x{1F600}-\\x{1F64F}\\x{1F300}-\\x{1F5FF}\\x{1F680}-\\x{1F6FF}\\x{1F1E0}-\\x{1F1FF}\\x{2600}-\\x{27BF}\\x{2300}-\\x{23FF}\\x{2B50}\\x{FE00}-\\x{FE0F}\\x{200D}\\x{20E3}\\x{E0020}-\\x{E007F}]"), "").trim()

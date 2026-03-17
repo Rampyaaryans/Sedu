@@ -17,8 +17,8 @@ class SeduMemory private constructor(context: Context) {
         private const val TAG = "SeduMemory"
         private const val MEMORY_FILE = "sedu_memory.json"
         private const val MAX_CONVERSATIONS = 100 // Keep last 100 turns
-        private const val RECENT_COUNT = 8 // Inject last 8 turns into prompt
-        private const val SUMMARY_COUNT = 30 // Summarize from last 30 turns
+        private const val RECENT_COUNT = 6 // Inject last 6 turns into prompt
+        private const val SUMMARY_COUNT = 20 // Summarize from last 20 turns
 
         @Volatile
         private var instance: SeduMemory? = null
